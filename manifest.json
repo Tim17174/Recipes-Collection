@@ -1,6 +1,6 @@
 {
-  "name": "Hello World Test App",
-  "short_name": "HelloApp",
+  "name": "Rezept-Scanner",
+  "short_name": "Rezepte",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

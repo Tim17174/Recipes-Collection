@@ -5,7 +5,7 @@ def make_icon(size, path):
     draw = ImageDraw.Draw(img)
     # simple diagonal accent
     draw.rectangle([0, size * 0.62, size, size], fill="#38bdf8")
-    text = "Hi"
+    text = "R"
     font_size = int(size * 0.42)
     try:
         font = ImageFont.truetype("arialbd.ttf", font_size)
