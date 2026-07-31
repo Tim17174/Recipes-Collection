@@ -1,0 +1,371 @@
+<title>Rezept-Scanner — Vorschau</title>
+<style>
+  :root {
+    --bg-1: #0f172a;
+    --bg-2: #1e293b;
+    --accent: #38bdf8;
+    --paper: #fdf6e3;
+    --ink: #2d2a24;
+    --good: #22c55e;
+    --good-ink: #052e12;
+    --text: #f8fafc;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    min-height: 100%;
+  }
+  .phone {
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  main {
+    flex: 1;
+    padding: 1.5rem 1rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .view { display: none; flex-direction: column; gap: 1.25rem; }
+  .view.active { display: flex; }
+
+  .previewBadge {
+    align-self: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+  }
+  h1 { font-size: 1.6rem; margin: 0.25rem 0 0; text-align: center; }
+  #collectionView h2, #detailView h2 { font-size: 1.3rem; margin: 0.25rem 0 0; text-align: center; }
+  .sub { text-align: center; opacity: 0.65; margin: 0; font-size: 0.9rem; }
+
+  #scanBtn {
+    padding: 0.9rem 1.5rem;
+    font-size: 1.05rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--bg-1);
+    font-weight: 700;
+  }
+  #scanBtn:active { opacity: 0.85; }
+
+  #status { text-align: center; font-size: 0.9rem; opacity: 0.75; min-height: 1.2em; }
+
+  #preview {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 12px;
+    display: none;
+  }
+
+  .card {
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 16px;
+    padding: 1.5rem 1.25rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  .card h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.4rem;
+    border-bottom: 2px solid #d9c9a3;
+    padding-bottom: 0.5rem;
+    text-wrap: balance;
+    text-align: left;
+  }
+  .card .meta {
+    display: flex; gap: 1rem; font-size: 0.85rem; opacity: 0.75;
+    margin: 0.5rem 0 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  .card h3 {
+    font-size: 1rem; margin: 1rem 0 0.4rem; text-transform: uppercase;
+    letter-spacing: 0.05em; opacity: 0.7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .card ul, .card ol { margin: 0; padding-left: 1.2rem; }
+  .card li { margin-bottom: 0.4rem; line-height: 1.4; }
+
+  .cardActions { display: flex; gap: 0.75rem; }
+  .cardActions button { flex: 1; padding: 0.7rem; border: none; border-radius: 10px; font-weight: 600; }
+  #saveBtn { background: var(--good); color: var(--good-ink); }
+  #discardBtn { background: rgba(255,255,255,0.12); color: var(--text); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #collectionList { display: flex; flex-direction: column; gap: 0.75rem; }
+  .collectionItem {
+    background: rgba(255,255,255,0.06); border-radius: 12px; padding: 0.9rem 1rem;
+    display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  }
+  .collectionItem .title { font-weight: 600; }
+  .collectionItem .meta2 { font-size: 0.8rem; opacity: 0.6; }
+  .collectionItem button { border: none; background: transparent; color: #f87171; font-size: 1.1rem; padding: 0.3rem 0.5rem; }
+  .collectionItem .open { color: var(--accent); background: transparent; border: none; font-size: 0.85rem; font-weight: 600; }
+  #emptyHint { text-align: center; opacity: 0.5; font-size: 0.85rem; }
+
+  #backBtn {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.4rem 0;
+  }
+
+  .tabbar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .tabbar button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgba(248,250,252,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.6rem 0 0.7rem;
+    font-size: 0.72rem;
+    font-family: inherit;
+  }
+  .tabbar button .icon { font-size: 1.3rem; }
+  .tabbar button.active { color: var(--accent); }
+</style>
+
+<div class="phone">
+  <main>
+    <section id="scanView" class="view active">
+      <span class="previewBadge">Design-Vorschau — Kamera &amp; KI simuliert</span>
+      <h1>📷 Rezept-Scanner</h1>
+      <p class="sub">Kochbuchseite fotografieren, automatisch als Kärtchen speichern.</p>
+
+      <button id="scanBtn">Rezept fotografieren</button>
+      <p id="status"></p>
+      <img id="preview" alt="Aufgenommenes Foto" />
+
+      <div id="result"></div>
+    </section>
+
+    <section id="collectionView" class="view">
+      <h2>Meine Sammlung</h2>
+      <div id="collectionList"></div>
+      <p id="emptyHint">Noch keine Rezepte gespeichert.</p>
+    </section>
+
+    <section id="detailView" class="view">
+      <button id="backBtn">← Zurück zur Sammlung</button>
+      <div id="detailResult"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button id="tabScan" class="active" data-view="scanView">
+      <span class="icon">📷</span>
+      <span>Scannen</span>
+    </button>
+    <button id="tabCollection" data-view="collectionView">
+      <span class="icon">📚</span>
+      <span>Sammlung</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+  const scanBtn = document.getElementById("scanBtn");
+  const statusEl = document.getElementById("status");
+  const preview = document.getElementById("preview");
+  const resultEl = document.getElementById("result");
+  const collectionList = document.getElementById("collectionList");
+  const emptyHint = document.getElementById("emptyHint");
+  const detailResult = document.getElementById("detailResult");
+  const backBtn = document.getElementById("backBtn");
+
+  const views = {
+    scanView: document.getElementById("scanView"),
+    collectionView: document.getElementById("collectionView"),
+    detailView: document.getElementById("detailView"),
+  };
+  const tabs = [document.getElementById("tabScan"), document.getElementById("tabCollection")];
+
+  tabs.forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
+  backBtn.addEventListener("click", () => showView("collectionView"));
+
+  function showView(name) {
+    Object.entries(views).forEach(([key, el]) => el.classList.toggle("active", key === name));
+    const tabName = name === "detailView" ? "collectionView" : name;
+    tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === tabName));
+  }
+
+  function showDetail(recipe) {
+    showView("detailView");
+    renderCard(recipe, false, detailResult);
+  }
+
+  const SAMPLE_RECIPES = [
+    {
+      title: "Klassischer Apfelkuchen",
+      servings: "1 Blech, ca. 12 Stücke",
+      time: "20 Min. + 45 Min. Backzeit",
+      ingredients: [
+        "6 säuerliche Äpfel", "250 g Mehl", "150 g Zucker", "200 g Butter, weich",
+        "3 Eier", "1 Pck. Backpulver", "1 TL Zimt", "1 Prise Salz",
+      ],
+      instructions: [
+        "Backofen auf 180 °C Ober-/Unterhitze vorheizen.",
+        "Butter und Zucker schaumig rühren, Eier nacheinander unterrühren.",
+        "Mehl, Backpulver und Salz mischen, unter den Teig heben.",
+        "Äpfel schälen, in Spalten schneiden, mit Zimt vermengen.",
+        "Teig in die Form geben, Apfelspalten einlegen, 45 Min. backen.",
+      ],
+    },
+    {
+      title: "Kartoffelsuppe mit Würstchen",
+      servings: "4 Portionen",
+      time: "40 Min.",
+      ingredients: [
+        "800 g mehlig kochende Kartoffeln", "1 Zwiebel", "2 Karotten", "1 Stange Lauch",
+        "1 l Gemüsebrühe", "4 Wiener Würstchen", "Muskat, Salz, Pfeffer",
+      ],
+      instructions: [
+        "Gemüse putzen und würfeln, Zwiebel anschwitzen.",
+        "Kartoffeln, Karotten und Lauch zugeben, mit Brühe ablöschen.",
+        "20 Minuten köcheln, bis die Kartoffeln weich sind.",
+        "Teilweise pürieren, mit Muskat, Salz und Pfeffer abschmecken.",
+        "Würstchen in Scheiben zugeben und kurz erhitzen.",
+      ],
+    },
+  ];
+  let sampleIndex = 0;
+  let currentRecipe = null;
+  const STORAGE_KEY = "recipeCollectionPreview";
+
+  scanBtn.addEventListener("click", simulateScan);
+
+  function simulateScan() {
+    resultEl.innerHTML = "";
+    preview.style.display = "none";
+    statusEl.textContent = "Foto wird verkleinert…";
+
+    setTimeout(() => {
+      preview.src = "data:image/svg+xml;utf8," + encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='220'><rect width='100%' height='100%' fill='#334155'/><text x='50%' y='50%' fill='#94a3b8' font-family='sans-serif' font-size='16' text-anchor='middle'>simuliertes Kochbuch-Foto</text></svg>`
+      );
+      preview.style.display = "block";
+      statusEl.textContent = "Rezept wird gelesen… (kann ein paar Sekunden dauern)";
+
+      setTimeout(() => {
+        currentRecipe = SAMPLE_RECIPES[sampleIndex % SAMPLE_RECIPES.length];
+        sampleIndex++;
+        statusEl.textContent = "";
+        renderCard(currentRecipe, true, resultEl);
+      }, 900);
+    }, 500);
+  }
+
+  function renderCard(recipe, withActions, target) {
+    const ingredients = (recipe.ingredients || []).map((i) => `<li>${escapeHtml(i)}</li>`).join("");
+    const steps = (recipe.instructions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+    const meta = [recipe.servings, recipe.time].filter(Boolean).map(escapeHtml).join(" · ");
+
+    target.innerHTML = `
+      <div class="card">
+        <h2>${escapeHtml(recipe.title || "Ohne Titel")}</h2>
+        ${meta ? `<div class="meta">${meta}</div>` : ""}
+        ${ingredients ? `<h3>Zutaten</h3><ul>${ingredients}</ul>` : ""}
+        ${steps ? `<h3>Zubereitung</h3><ol>${steps}</ol>` : ""}
+      </div>
+      ${withActions ? `
+        <div class="cardActions">
+          <button id="saveBtn">Speichern</button>
+          <button id="discardBtn">Verwerfen</button>
+        </div>` : ""}
+    `;
+
+    if (withActions) {
+      document.getElementById("saveBtn").addEventListener("click", saveCurrentRecipe);
+      document.getElementById("discardBtn").addEventListener("click", () => {
+        resultEl.innerHTML = "";
+        preview.style.display = "none";
+        currentRecipe = null;
+      });
+    }
+  }
+
+  function saveCurrentRecipe() {
+    if (!currentRecipe) return;
+    const list = loadCollection();
+    list.unshift({ ...currentRecipe, savedAt: new Date().toISOString() });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    resultEl.innerHTML = "";
+    preview.style.display = "none";
+    currentRecipe = null;
+    renderCollection();
+    showView("collectionView");
+  }
+
+  function loadCollection() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function renderCollection() {
+    const list = loadCollection();
+    emptyHint.style.display = list.length ? "none" : "block";
+    collectionList.innerHTML = list.map((r, i) => `
+      <div class="collectionItem">
+        <div>
+          <div class="title">${escapeHtml(r.title || "Ohne Titel")}</div>
+          <div class="meta2">${[r.servings, r.time].filter(Boolean).map(escapeHtml).join(" · ")}</div>
+        </div>
+        <button class="open" data-index="${i}">Öffnen</button>
+        <button data-delete="${i}" aria-label="Löschen">✕</button>
+      </div>
+    `).join("");
+
+    collectionList.querySelectorAll("[data-index]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const r = loadCollection()[Number(btn.dataset.index)];
+        showDetail(r);
+      });
+    });
+    collectionList.querySelectorAll("[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const list = loadCollection();
+        list.splice(Number(btn.dataset.delete), 1);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        renderCollection();
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  renderCollection();
+</script>
