@@ -9,285 +9,338 @@
   <link rel="apple-touch-icon" href="icon-180.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#f5f0e6" />
 
   <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
-      padding-top: env(safe-area-inset-top);
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-      color: #f8fafc;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    :root {
+      --bg: oklch(0.96 0.014 80);
+      --card: #fff;
+      --text: oklch(0.22 0.01 75);
+      --text-2: oklch(0.5 0.01 75);
+      --text-3: oklch(0.65 0.01 75);
+      --accent: oklch(0.4 0.07 152);
+      --accent-soft: oklch(0.88 0.035 140);
+      --accent-text: oklch(0.32 0.06 152);
+      --chip-bg: oklch(0.94 0.01 75);
+      --chip-text: oklch(0.4 0.01 75);
+      --badge-bg: oklch(0.91 0.045 42);
+      --badge-text: oklch(0.45 0.1 38);
+      --border: oklch(0.85 0.01 75);
+      --border-dashed: oklch(0.78 0.01 75);
+      --danger: oklch(0.55 0.15 35);
+      --heart: oklch(0.6 0.14 35);
+      color-scheme: light;
     }
-    main {
-      max-width: 560px;
-      margin: 0 auto;
-      padding: 1.5rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    button, input, textarea { font-family: inherit; }
+    button { cursor: pointer; }
+
+    #app {
+      position: fixed;
+      inset: 0;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
-    }
-    .view { display: none; flex-direction: column; gap: 1.25rem; }
-    .view.active { display: flex; }
-
-    h1 { font-size: 1.6rem; margin: 0.5rem 0 0; text-align: center; }
-    .sub { text-align: center; opacity: 0.65; margin: 0; font-size: 0.9rem; }
-
-    #scanBtn {
-      padding: 0.9rem 1.5rem;
-      font-size: 1.05rem;
-      border: none;
-      border-radius: 999px;
-      background: #38bdf8;
-      color: #0f172a;
-      font-weight: 700;
-    }
-    #scanBtn:active { opacity: 0.85; }
-
-    #status {
-      text-align: center;
-      font-size: 0.9rem;
-      opacity: 0.75;
-      min-height: 1.2em;
+      background: var(--bg);
+      overflow: hidden;
     }
 
-    #preview {
-      width: 100%;
-      max-height: 220px;
-      object-fit: cover;
-      border-radius: 12px;
-      display: none;
-    }
-
-    .card {
-      background: #fdf6e3;
-      color: #2d2a24;
-      border-radius: 16px;
-      padding: 1.5rem 1.25rem;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      font-family: Georgia, "Times New Roman", serif;
-    }
-    .card h2 {
-      margin: 0 0 0.25rem;
-      font-size: 1.4rem;
-      border-bottom: 2px solid #d9c9a3;
-      padding-bottom: 0.5rem;
-    }
-    .card .meta {
-      display: flex;
-      gap: 1rem;
-      font-size: 0.85rem;
-      opacity: 0.75;
-      margin: 0.5rem 0 1rem;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .card h3 {
-      font-size: 1rem;
-      margin: 1rem 0 0.4rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      opacity: 0.7;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .card ul, .card ol { margin: 0; padding-left: 1.2rem; }
-    .card li { margin-bottom: 0.4rem; line-height: 1.4; }
-
-    .cardActions {
-      display: flex;
-      gap: 0.75rem;
-    }
-    .cardActions button {
+    .scroll {
       flex: 1;
-      padding: 0.7rem;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
+      min-height: 0;
+      overflow-y: auto;
+      padding: calc(1.1rem + env(safe-area-inset-top)) 1rem calc(6.5rem + env(safe-area-inset-bottom));
+      -webkit-overflow-scrolling: touch;
     }
-    #saveBtn { background: #22c55e; color: #052e12; }
-    #discardBtn { background: rgba(255,255,255,0.12); color: #f8fafc; }
 
-    #collectionView h2 { font-size: 1.3rem; margin: 0.5rem 0 0; text-align: center; }
-    #collectionList { display: flex; flex-direction: column; gap: 0.75rem; }
-    .collectionItem {
-      background: rgba(255,255,255,0.06);
-      border-radius: 12px;
-      padding: 0.9rem 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.75rem;
+    .row { display: flex; align-items: center; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; }
+    .greet { font-size: 0.95rem; font-weight: 500; color: var(--text-2); }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent-text);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 1rem; flex-shrink: 0;
     }
-    .collectionItem .title { font-weight: 600; }
-    .collectionItem .meta2 { font-size: 0.8rem; opacity: 0.6; }
-    .collectionItem button {
-      border: none;
-      background: transparent;
-      color: #f87171;
-      font-size: 1.1rem;
-      padding: 0.3rem 0.5rem;
-    }
-    .collectionItem .open { color: #38bdf8; background: transparent; border: none; font-size: 0.85rem; font-weight: 600; }
 
-    #emptyHint { text-align: center; opacity: 0.5; font-size: 0.85rem; }
+    .statGrid { display: flex; gap: 0.6rem; margin-top: 1.1rem; }
+    .statCard { flex: 1; background: var(--card); border-radius: 16px; padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .statCard .num { font-size: 1.4rem; font-weight: 700; }
+    .statCard .label { font-size: 0.78rem; color: var(--text-2); margin-top: 0.1rem; }
 
-    #detailView { display: none; flex-direction: column; gap: 1.25rem; }
-    #detailView.active { display: flex; }
-    #backBtn {
-      align-self: flex-start;
-      border: none;
-      background: transparent;
-      color: #38bdf8;
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 0.4rem 0;
+    .sectionTitle { font-size: 1.2rem; font-weight: 700; margin: 1.6rem 0 0; }
+    .sectionSub { font-size: 0.8rem; color: var(--text-2); margin-top: 0.15rem; }
+    .chevron { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
+
+    .hscroll { display: flex; gap: 0.8rem; overflow-x: auto; margin-top: 0.75rem; padding-bottom: 0.4rem; }
+    .hscroll::-webkit-scrollbar { display: none; }
+
+    .recipeTile { flex: 0 0 148px; width: 148px; display: flex; flex-direction: column; gap: 0.45rem; cursor: pointer; }
+    .recipeTile .photo { width: 148px; height: 112px; border-radius: 15px; }
+    .recipeTile .title { font-size: 0.9rem; font-weight: 600; line-height: 1.25; }
+    .recipeTile .meta { font-size: 0.75rem; color: var(--text-2); }
+
+    .photoPh {
+      position: relative; overflow: hidden; background-size: cover; background-position: center;
+      display: flex; align-items: flex-end;
     }
+
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 0.75rem; }
+    .tile { border-radius: 17px; padding: 0.95rem; cursor: pointer; }
+    .tile .name { font-size: 0.9rem; font-weight: 600; }
+    .tile .count { font-size: 0.78rem; color: oklch(0.4 0.02 75); margin-top: 0.15rem; }
+    .tileAdd {
+      border: 1.5px dashed var(--border-dashed); border-radius: 17px; padding: 0.95rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; min-height: 46px;
+    }
+    .tileAdd .plus { font-size: 1.25rem; color: var(--accent); line-height: 1; }
+    .tileAdd .label { font-size: 0.78rem; font-weight: 600; color: var(--text-2); }
+
+    .inlineAdd { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+    .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 0.9rem; color: var(--text); }
+    .btnSmall { background: var(--accent); color: #fff; border: none; border-radius: 11px; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+    .btnSmallGhost { background: var(--chip-bg); color: var(--chip-text); border: none; border-radius: 11px; padding: 0.6rem 0.9rem; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+
+    .pageTitle { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.4px; margin: 0; }
+    .pageCount { font-size: 0.85rem; color: var(--text-2); margin-top: 0.15rem; }
+    .headerBtns { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
+    .pill { padding: 0.45rem 0.85rem; border-radius: 100px; font-size: 0.78rem; font-weight: 600; border: none; }
+    .pillActive { background: var(--accent); color: #fff; }
+    .pillInactive { background: var(--card); color: var(--chip-text); }
+
+    .searchBar { display: flex; align-items: center; gap: 0.5rem; background: var(--card); border-radius: 13px; padding: 0.6rem 0.85rem; margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .searchBar input { border: none; outline: none; font-size: 0.95rem; color: var(--text); flex: 1; background: transparent; }
+
+    .chipRow { display: flex; gap: 0.5rem; overflow-x: auto; margin-top: 0.6rem; padding-bottom: 0.25rem; }
+    .chipRow::-webkit-scrollbar { display: none; }
+    .chip { flex-shrink: 0; padding: 0.5rem 0.9rem; border-radius: 100px; font-size: 0.82rem; font-weight: 600; border: none; }
+    .chipToggle { padding: 0.4rem 0.8rem; border-radius: 100px; font-size: 0.78rem; font-weight: 600; border: none; }
+    .chipActive { background: var(--accent); color: #fff; }
+    .chipInactive { background: var(--card); color: var(--chip-text); }
+    .chipInactiveAlt { background: var(--chip-bg); color: var(--chip-text); }
+
+    .recipeGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; margin-top: 1.1rem; }
+    .recipeCard { cursor: pointer; display: flex; flex-direction: column; gap: 0.45rem; }
+    .recipeCard .photo { width: 100%; height: 118px; border-radius: 15px; }
+    .recipeCard .title { font-size: 0.88rem; font-weight: 600; line-height: 1.25; }
+    .recipeCard .meta { font-size: 0.72rem; color: var(--text-2); }
+
+    .sortRow { display: flex; align-items: center; gap: 0.65rem; background: var(--card); border-radius: 14px; padding: 0.6rem 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: grab; }
+    .sortRow .grip { flex-shrink: 0; opacity: 0.4; }
+    .sortRow .thumb { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; background-size: cover; background-position: center; }
+    .sortRow .title { flex: 1; font-size: 0.9rem; font-weight: 600; }
+
+    .emptyHint { text-align: center; padding: 3rem 1rem; color: var(--text-3); font-size: 0.95rem; }
+
+    .photoLabel { font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem; color: rgba(255,255,255,0.92); background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 5px; margin: 0.4rem; }
 
     .tabbar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      background: rgba(15, 23, 42, 0.92);
-      backdrop-filter: blur(12px);
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding-bottom: env(safe-area-inset-bottom);
+      position: fixed; bottom: 0; left: 0; right: 0; height: calc(64px + env(safe-area-inset-bottom));
+      display: flex; justify-content: space-around; padding-top: 0.5rem; box-sizing: border-box;
+      backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
+      background: rgba(255,255,255,0.72); border-top: 0.5px solid rgba(0,0,0,0.08); z-index: 30;
     }
-    .tabbar button {
-      flex: 1;
-      border: none;
-      background: transparent;
-      color: rgba(248,250,252,0.5);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.2rem;
-      padding: 0.6rem 0 0.5rem;
-      font-size: 0.72rem;
-      font-family: inherit;
+    .tabbar button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; width: 70px; padding: 0; }
+    .tabbar .tlabel { font-size: 0.68rem; font-weight: 600; }
+    .tabOn { color: var(--accent); }
+    .tabOff { color: oklch(0.65 0.01 75); }
+
+    .fab {
+      position: fixed; bottom: calc(48px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+      width: 60px; height: 60px; border-radius: 50%; background: var(--accent); border: none;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 18px oklch(0.4 0.07 152 / 0.4); z-index: 40;
     }
-    .tabbar button .icon { font-size: 1.3rem; }
-    .tabbar button.active { color: #38bdf8; }
+
+    .overlay { position: fixed; inset: 0; z-index: 70; }
+    .sheetBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 70; display: flex; align-items: flex-end; }
+    .sheet { background: #fff; border-radius: 22px 22px 0 0; padding: 1.4rem 1.25rem calc(2.5rem + env(safe-area-inset-bottom)); width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.6rem; }
+    .sheetTitle { font-size: 1rem; font-weight: 700; text-align: center; margin-bottom: 0.25rem; }
+    .chooserOption { display: flex; align-items: center; gap: 0.75rem; background: var(--chip-bg); border-radius: 15px; padding: 0.9rem 1rem; border: none; text-align: left; }
+    .chooserOption .label { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .chooserCancel { text-align: center; padding: 0.75rem; font-size: 0.9rem; font-weight: 600; color: var(--text-2); background: none; border: none; }
+
+    .fullSheet { position: fixed; inset: 0; background: #fff; z-index: 60; display: flex; flex-direction: column; animation: sheetUp 0.25s ease-out; }
+    @keyframes sheetUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .sheetHeader { display: flex; justify-content: space-between; align-items: center; padding: calc(1rem + env(safe-area-inset-top)) 1.1rem 0.25rem; flex-shrink: 0; }
+    .roundBtn { width: 36px; height: 36px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; }
+    .sheetHeaderTitle { font-size: 1rem; font-weight: 700; }
+
+    .formScroll { flex: 1; overflow-y: auto; padding: 0.75rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
+    .fieldLabel { font-size: 0.78rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1rem; }
+    .fieldLabel:first-child { margin-top: 0; }
+    .textInput { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 0.95rem; margin-top: 0.5rem; color: var(--text); }
+    .titleInput { font-size: 1.05rem; font-weight: 600; }
+    textarea.textInput { min-height: 60px; resize: vertical; }
+    .twoCol { display: flex; gap: 0.65rem; margin-top: 1rem; }
+    .twoCol > div { flex: 1; }
+    .twoCol .fieldLabel { margin-top: 0; }
+
+    .listRow { display: flex; align-items: center; gap: 0.5rem; }
+    .listRow input, .listRow textarea { flex: 1; border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.7rem; font-size: 0.92rem; color: var(--text); }
+    .removeBtn { width: 28px; height: 28px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--text-2); flex-shrink: 0; }
+    .addDashed { margin-top: 0.55rem; text-align: center; border: 1.5px dashed var(--border-dashed); border-radius: 10px; padding: 0.6rem; font-size: 0.85rem; font-weight: 600; color: var(--text-2); background: none; width: 100%; }
+    .stepNum { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 0.35rem; }
+
+    .formFooter { display: flex; gap: 0.65rem; padding: 0.9rem 1.1rem calc(1.9rem + env(safe-area-inset-bottom)); flex-shrink: 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.03); }
+    .btnGhost { flex: 1; text-align: center; padding: 0.85rem; border-radius: 14px; background: var(--chip-bg); color: oklch(0.35 0.01 75); font-size: 0.95rem; font-weight: 600; border: none; }
+    .btnPrimary { flex: 1; text-align: center; padding: 0.85rem; border-radius: 14px; background: var(--accent); color: #fff; font-size: 0.95rem; font-weight: 600; border: none; }
+
+    .detailHero { height: 230px; position: relative; flex-shrink: 0; background-size: cover; background-position: center; }
+    .heroBtn { position: absolute; top: calc(1rem + env(safe-area-inset-top)); width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.78); backdrop-filter: blur(10px); border: none; display: flex; align-items: center; justify-content: center; }
+    .detailBody { padding: 1.1rem 1.1rem calc(2rem + env(safe-area-inset-bottom)); }
+    .badge { display: inline-block; background: var(--badge-bg); color: var(--badge-text); font-size: 0.75rem; font-weight: 600; padding: 0.3rem 0.7rem; border-radius: 100px; }
+    .tagRow { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.55rem; }
+    .tagPill { background: var(--chip-bg); color: var(--chip-text); font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 100px; }
+    .detailTitle { font-size: 1.45rem; font-weight: 700; margin-top: 0.7rem; letter-spacing: -0.3px; }
+    .detailMeta { font-size: 0.85rem; color: var(--text-2); margin-top: 0.35rem; }
+
+    .actionRow { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+    .actionBtn { display: flex; align-items: center; gap: 0.35rem; background: var(--chip-bg); border-radius: 100px; padding: 0.5rem 0.85rem; border: none; font-size: 0.8rem; font-weight: 600; color: oklch(0.35 0.01 75); }
+    .actionBtn.cook { background: var(--accent-soft); color: var(--accent-text); }
+
+    .h3 { font-size: 1.05rem; font-weight: 700; margin-top: 1.4rem; }
+    .scaleRow { display: flex; align-items: center; gap: 0.55rem; }
+    .roundSmall { width: 27px; height: 27px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--chip-text); }
+    .ingredientsList { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.7rem; }
+    .ingredientRow { display: flex; align-items: center; gap: 0.6rem; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .stepsList { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.7rem; }
+    .stepItem { display: flex; gap: 0.7rem; }
+    .stepText { font-size: 0.92rem; line-height: 1.45; padding-top: 0.05rem; }
+    .notesArea { width: 100%; box-sizing: border-box; margin-top: 0.55rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; font-size: 0.9rem; min-height: 60px; resize: vertical; color: var(--text); }
+    .deleteLink { text-align: center; margin-top: 1rem; color: var(--danger); font-size: 0.88rem; font-weight: 600; background: none; border: none; width: 100%; padding: 0.5rem; }
+
+    .confirmBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .confirmBox { background: #fff; border-radius: 18px; padding: 1.4rem; width: 100%; max-width: 300px; }
+    .confirmTitle { font-size: 1.05rem; font-weight: 700; }
+    .confirmText { font-size: 0.85rem; color: var(--text-2); margin-top: 0.5rem; line-height: 1.4; }
+    .confirmRow { display: flex; gap: 0.6rem; margin-top: 1.1rem; }
+    .btnDanger { flex: 1; text-align: center; padding: 0.7rem; border-radius: 12px; background: var(--danger); color: #fff; font-size: 0.85rem; font-weight: 600; border: none; }
+
+    .cookScreen { position: fixed; inset: 0; z-index: 65; background: oklch(0.2 0.01 75); display: flex; flex-direction: column; animation: sheetUp 0.2s ease-out; }
+    .cookHeader { display: flex; justify-content: space-between; align-items: center; padding: calc(1rem + env(safe-area-inset-top)) 1.1rem 0; }
+    .cookHeader .cookTitle { font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.6); }
+    .cookBody { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem 2rem; text-align: center; }
+    .cookStepLabel { font-size: 0.78rem; font-weight: 600; color: oklch(0.7 0.08 150); letter-spacing: 0.04em; text-transform: uppercase; }
+    .cookStepText { font-size: 1.5rem; font-weight: 600; color: #fff; line-height: 1.4; margin-top: 1rem; }
+    .cookFooter { display: flex; gap: 0.6rem; padding: 1rem 1.1rem calc(2.2rem + env(safe-area-inset-bottom)); }
+    .cookBtn { flex: 1; text-align: center; padding: 0.9rem; border-radius: 14px; background: rgba(255,255,255,0.12); color: #fff; font-size: 0.95rem; font-weight: 600; border: none; }
+    .cookBtnNext { background: var(--accent); }
+
+    .captureScreen { position: fixed; inset: 0; z-index: 60; background: #101110; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; }
+    .spinner { width: 60px; height: 60px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.18); border-top-color: oklch(0.6 0.1 150); animation: spin 0.9s linear infinite; }
+    .captureText { font-size: 0.95rem; font-weight: 600; color: #fff; }
+    .captureSub { font-size: 0.8rem; color: rgba(255,255,255,0.55); max-width: 260px; }
+    .captureErr { color: oklch(0.75 0.13 30); }
+
+    .noResults { text-align: center; padding: 3rem 1.25rem; color: var(--text-3); font-size: 0.92rem; }
   </style>
 </head>
 <body>
-  <main>
-    <section id="scanView" class="view active">
-      <h1>📷 Rezept-Scanner</h1>
-      <p class="sub">Kochbuchseite fotografieren, automatisch als Kärtchen speichern.</p>
-
-      <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none" />
-      <button id="scanBtn">Rezept fotografieren</button>
-      <p id="status"></p>
-      <img id="preview" alt="Aufgenommenes Foto" />
-
-      <div id="result"></div>
-    </section>
-
-    <section id="collectionView" class="view">
-      <h2>Meine Sammlung</h2>
-      <div id="collectionList"></div>
-      <p id="emptyHint">Noch keine Rezepte gespeichert.</p>
-    </section>
-
-    <section id="detailView">
-      <button id="backBtn">← Zurück zur Sammlung</button>
-      <div id="detailResult"></div>
-    </section>
-  </main>
-
-  <nav class="tabbar">
-    <button id="tabScan" class="active" data-view="scanView">
-      <span class="icon">📷</span>
-      <span>Scannen</span>
-    </button>
-    <button id="tabCollection" data-view="collectionView">
-      <span class="icon">📚</span>
-      <span>Sammlung</span>
-    </button>
-  </nav>
+  <div id="app"></div>
+  <input id="scanInput" type="file" accept="image/*" capture="environment" style="display:none" />
+  <input id="dishInput" type="file" accept="image/*" capture="environment" style="display:none" />
 
   <script>
-    const fileInput = document.getElementById("fileInput");
-    const scanBtn = document.getElementById("scanBtn");
-    const statusEl = document.getElementById("status");
-    const preview = document.getElementById("preview");
-    const resultEl = document.getElementById("result");
-    const collectionList = document.getElementById("collectionList");
-    const emptyHint = document.getElementById("emptyHint");
-    const detailView = document.getElementById("detailView");
-    const detailResult = document.getElementById("detailResult");
-    const backBtn = document.getElementById("backBtn");
-
-    const views = {
-      scanView: document.getElementById("scanView"),
-      collectionView: document.getElementById("collectionView"),
+    // ---------- Storage ----------
+    const KEYS = {
+      recipes: "kochbuchRecipes",
+      categories: "kochbuchCategories",
+      notebooks: "kochbuchNotebooks",
+      tags: "kochbuchTags",
+      people: "kochbuchPeople",
     };
-    const tabs = [document.getElementById("tabScan"), document.getElementById("tabCollection")];
 
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => showView(tab.dataset.view));
-    });
-    backBtn.addEventListener("click", () => showView("collectionView"));
-
-    function showView(name) {
-      detailView.classList.remove("active");
-      Object.entries(views).forEach(([key, el]) => {
-        el.classList.toggle("active", key === name);
-      });
-      tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === name));
-    }
-
-    function showDetail(recipe) {
-      Object.values(views).forEach((el) => el.classList.remove("active"));
-      tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === "collectionView"));
-      detailView.classList.add("active");
-      renderCard(recipe, false, detailResult);
-    }
-
-    const STORAGE_KEY = "recipeCollection";
-    let currentRecipe = null;
-
-    scanBtn.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", onFileSelected);
-
-    async function onFileSelected(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      resultEl.innerHTML = "";
-      statusEl.textContent = "Foto wird verkleinert…";
-
+    function load(key, fallback) {
       try {
-        const { base64, mediaType, dataUrl } = await resizeImage(file, 1600, 0.82);
-        preview.src = dataUrl;
-        preview.style.display = "block";
-
-        statusEl.textContent = "Rezept wird gelesen… (kann ein paar Sekunden dauern)";
-
-        const res = await fetch("/.netlify/functions/extract-recipe", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ image: base64, mediaType }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Unbekannter Fehler");
-        }
-
-        currentRecipe = data;
-        statusEl.textContent = "";
-        renderCard(data, true, resultEl);
-      } catch (err) {
-        statusEl.textContent = "Fehler: " + err.message;
-      } finally {
-        fileInput.value = "";
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch {
+        return fallback;
       }
+    }
+
+    function persist(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (err) {
+        alert("Speichern nicht möglich — der lokale Speicher ist voll. Alte Rezeptfotos ggf. entfernen.");
+      }
+    }
+
+    const data = {
+      recipes: load(KEYS.recipes, []),
+      categories: load(KEYS.categories, ["Hauptgericht", "Beilage", "Dessert"]),
+      notebooks: load(KEYS.notebooks, []),
+      tags: load(KEYS.tags, []),
+      people: load(KEYS.people, []),
+    };
+
+    function saveRecipes() { persist(KEYS.recipes, data.recipes); }
+    function saveCategories() { persist(KEYS.categories, data.categories); }
+    function saveNotebooks() { persist(KEYS.notebooks, data.notebooks); }
+    function saveTags() { persist(KEYS.tags, data.tags); }
+    function savePeople() { persist(KEYS.people, data.people); }
+
+    // ---------- Utilities ----------
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+    function escapeHtml(str) {
+      return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    const COLOR_PAIRS = [
+      ["oklch(0.72 0.13 35)", "oklch(0.8 0.09 35)"],
+      ["oklch(0.75 0.1 140)", "oklch(0.83 0.07 140)"],
+      ["oklch(0.85 0.09 95)", "oklch(0.91 0.06 95)"],
+      ["oklch(0.7 0.13 55)", "oklch(0.78 0.09 55)"],
+      ["oklch(0.8 0.09 145)", "oklch(0.87 0.06 145)"],
+      ["oklch(0.68 0.14 30)", "oklch(0.76 0.1 30)"],
+    ];
+    const TILE_BG = ["oklch(0.91 0.045 42)", "oklch(0.88 0.035 140)", "oklch(0.92 0.02 300)", "oklch(0.92 0.03 230)", "oklch(0.93 0.03 90)"];
+    const TIME_BUCKETS = ["Alle", "≤ 15 Min", "≤ 30 Min", "≤ 60 Min", "> 60 Min"];
+
+    function photoStyle(recipe) {
+      if (recipe.photo) return `background-image:url('${recipe.photo}');`;
+      const idx = Math.abs(hashStr(recipe.id)) % COLOR_PAIRS.length;
+      const [c1, c2] = COLOR_PAIRS[idx];
+      return `background-image:repeating-linear-gradient(135deg, ${c1} 0px, ${c1} 14px, ${c2} 14px, ${c2} 28px);`;
+    }
+    function hashStr(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+      return h;
+    }
+
+    function timeMatchesBucket(bucket, minutes) {
+      if (bucket === "Alle") return true;
+      if (bucket === "≤ 15 Min") return minutes <= 15;
+      if (bucket === "≤ 30 Min") return minutes <= 30;
+      if (bucket === "≤ 60 Min") return minutes <= 60;
+      if (bucket === "> 60 Min") return minutes > 60;
+      return true;
+    }
+
+    function scaleIngredientText(text, factor) {
+      const m = String(text).match(/^([\d]+(?:[.,][\d]+)?)(\s*)(.*)$/);
+      if (!m) return text;
+      const num = parseFloat(m[1].replace(",", "."));
+      if (isNaN(num)) return text;
+      let scaled = Math.round(num * factor * 100) / 100;
+      let scaledStr = String(scaled);
+      if (scaledStr.indexOf(".") !== -1) scaledStr = scaledStr.replace(/0+$/, "").replace(/\.$/, "");
+      return scaledStr + m[2] + m[3];
     }
 
     function resizeImage(file, maxDim, quality) {
@@ -317,92 +370,1008 @@
       });
     }
 
-    function renderCard(recipe, withActions, target) {
-      const ingredients = (recipe.ingredients || []).map((i) => `<li>${escapeHtml(i)}</li>`).join("");
-      const steps = (recipe.instructions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
-      const meta = [recipe.servings, recipe.time].filter(Boolean).map(escapeHtml).join(" · ");
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = String(text).split(" ");
+      let line = "", cy = y;
+      for (let i = 0; i < words.length; i++) {
+        const test = line + words[i] + " ";
+        if (ctx.measureText(test).width > maxWidth && line) {
+          ctx.fillText(line, x, cy);
+          line = words[i] + " ";
+          cy += lineHeight;
+        } else {
+          line = test;
+        }
+      }
+      ctx.fillText(line, x, cy);
+      return cy + lineHeight;
+    }
 
-      target.innerHTML = `
-        <div class="card">
-          <h2>${escapeHtml(recipe.title || "Ohne Titel")}</h2>
-          ${meta ? `<div class="meta">${meta}</div>` : ""}
-          ${ingredients ? `<h3>Zutaten</h3><ul>${ingredients}</ul>` : ""}
-          ${steps ? `<h3>Zubereitung</h3><ol>${steps}</ol>` : ""}
+    // ---------- State ----------
+    const state = {
+      tab: "home",
+      selectedId: null,
+      editMode: false,
+      draft: null,
+      confirmDeleteOpen: false,
+      cookMode: null,
+      sortMode: false,
+      dragId: null,
+      scaleServings: 1,
+      search: "",
+      categoryFilter: "Alle",
+      notebookFilter: "all",
+      tagFilter: "Alle",
+      timeFilter: "Alle",
+      filterGroup: "category",
+      recentOpen: true,
+      favoritesOpen: true,
+      collectionEditMode: false,
+      addingCategory: false, newCategoryName: "",
+      addingNotebook: false, newNotebookName: "",
+      newTagValue: "",
+      newPersonName: "",
+      addChooserOpen: false,
+      manualAddOpen: false, manualDraft: null,
+      captureStep: null, // 'processing' | 'result' | 'error'
+      captureError: "",
+      pendingRecipe: null,
+      pendingThumb: null,
+    };
+
+    const app = document.getElementById("app");
+    const scanInput = document.getElementById("scanInput");
+    const dishInput = document.getElementById("dishInput");
+
+    function render() {
+      app.innerHTML = renderApp();
+      bindEvents();
+    }
+
+    function rerenderPreservingFocus(el) {
+      const selector = `[data-bind-live="${el.dataset.bindLive}"]`;
+      const selStart = el.selectionStart, selEnd = el.selectionEnd;
+      render();
+      const revived = app.querySelector(selector);
+      if (revived) {
+        revived.focus();
+        if (selStart != null && revived.setSelectionRange) {
+          try { revived.setSelectionRange(selStart, selEnd); } catch {}
+        }
+      }
+    }
+
+    // ---------- Derived helpers ----------
+    function computeFiltered() {
+      const searchLower = state.search.toLowerCase();
+      return data.recipes.filter((r) =>
+        (state.categoryFilter === "Alle" || r.category === state.categoryFilter) &&
+        (state.notebookFilter === "all" || r.notebookId === state.notebookFilter) &&
+        (state.tagFilter === "Alle" || (r.tags || []).includes(state.tagFilter)) &&
+        (state.timeFilter === "Alle" || timeMatchesBucket(state.timeFilter, parseInt(r.time, 10) || 0)) &&
+        r.title.toLowerCase().includes(searchLower)
+      );
+    }
+    function getRecipe(id) { return data.recipes.find((r) => r.id === id); }
+    function notebookName(id) { const n = data.notebooks.find((n) => n.id === id); return n ? n.name : null; }
+
+    // ---------- Top-level render ----------
+    function renderApp() {
+      let html = `<div class="scroll">`;
+      html += state.tab === "home" ? renderHome() : renderCollection();
+      html += `</div>`;
+      html += renderTabBar();
+      html += `<button class="fab" data-action="openAddChooser" aria-label="Rezept hinzufügen">
+        <svg width="22" height="22" viewBox="0 0 22 22"><path d="M11 2v18M2 11h18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </button>`;
+
+      if (state.addChooserOpen) html += renderAddChooser();
+      if (state.manualAddOpen) html += renderManualAdd();
+      if (state.selectedId != null) html += renderDetail();
+      if (state.confirmDeleteOpen) html += renderDeleteConfirm();
+      if (state.cookMode) html += renderCookMode();
+      if (state.captureStep) html += renderCapture();
+
+      return html;
+    }
+
+    function renderTabBar() {
+      return `
+      <nav class="tabbar">
+        <button data-action="goHome" class="${state.tab === "home" ? "tabOn" : "tabOff"}">
+          <svg width="24" height="22" viewBox="0 0 24 22"><path d="M2 10.5L12 2l10 8.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 9v11h15V9" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <span class="tlabel">Home</span>
+        </button>
+        <div style="width:70px;"></div>
+        <button data-action="goCollection" class="${state.tab === "collection" ? "tabOn" : "tabOff"}">
+          <svg width="21" height="22" viewBox="0 0 21 22"><path d="M2 2h17v18l-8.5-5L2 20V2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <span class="tlabel">Sammlung</span>
+        </button>
+      </nav>`;
+    }
+
+    // ---------- Home ----------
+    function renderHome() {
+      const recent = data.recipes.slice(0, 4);
+      const favorites = data.recipes.filter((r) => r.favorite).slice().reverse();
+
+      const catCounts = {};
+      data.categories.forEach((c) => (catCounts[c] = 0));
+      data.recipes.forEach((r) => { if (catCounts[r.category] !== undefined) catCounts[r.category]++; });
+
+      const nbCounts = {};
+      data.notebooks.forEach((n) => (nbCounts[n.id] = 0));
+      data.recipes.forEach((r) => { if (r.notebookId != null && nbCounts[r.notebookId] !== undefined) nbCounts[r.notebookId]++; });
+
+      let html = `
+        <div class="row-between">
+          <div><div class="greet">Guten Tag</div></div>
+          <div class="avatar">👤</div>
         </div>
-        ${withActions ? `
-          <div class="cardActions">
-            <button id="saveBtn">Speichern</button>
-            <button id="discardBtn">Verwerfen</button>
-          </div>` : ""}
-      `;
+        <div class="statGrid">
+          <div class="statCard"><div class="num">${data.recipes.length}</div><div class="label">Rezepte</div></div>
+          <div class="statCard"><div class="num">${data.notebooks.length}</div><div class="label">Kochbücher</div></div>
+        </div>`;
 
-      if (withActions) {
-        document.getElementById("saveBtn").addEventListener("click", saveCurrentRecipe);
-        document.getElementById("discardBtn").addEventListener("click", () => {
-          resultEl.innerHTML = "";
-          preview.style.display = "none";
-          currentRecipe = null;
-        });
+      if (data.recipes.length === 0) {
+        html += `<div class="emptyHint">Noch keine Rezepte. Tippe unten auf ＋, um dein erstes Rezept zu fotografieren oder von Hand einzutragen.</div>`;
       }
-    }
 
-    function saveCurrentRecipe() {
-      if (!currentRecipe) return;
-      const list = loadCollection();
-      list.unshift({ ...currentRecipe, savedAt: new Date().toISOString() });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-      resultEl.innerHTML = "";
-      preview.style.display = "none";
-      currentRecipe = null;
-      renderCollection();
-      showView("collectionView");
-    }
-
-    function loadCollection() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-      } catch {
-        return [];
+      if (recent.length > 0) {
+        html += `
+          <div class="row-between" data-action="toggleRecentOpen" style="margin-top:1.6rem;cursor:pointer;">
+            <div class="sectionTitle" style="margin-top:0;">Zuletzt hinzugefügt</div>
+            <div class="chevron" style="transform:rotate(${state.recentOpen ? 180 : 0}deg);">
+              <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>`;
+        if (state.recentOpen) {
+          html += `<div class="hscroll">` + recent.map(recipeTile).join("") + `</div>`;
+        }
       }
+
+      if (favorites.length > 0) {
+        html += `
+          <div class="row-between" data-action="toggleFavoritesOpen" style="margin-top:1.6rem;cursor:pointer;">
+            <div class="sectionTitle" style="margin-top:0;">Lieblingsrezepte</div>
+            <div class="chevron" style="transform:rotate(${state.favoritesOpen ? 180 : 0}deg);">
+              <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>`;
+        if (state.favoritesOpen) {
+          html += `<div class="hscroll">` + favorites.map(recipeTile).join("") + `</div>`;
+        }
+      }
+
+      html += `<div class="sectionTitle">Kategorien</div><div class="grid2">`;
+      html += data.categories.map((name, i) => `
+        <div class="tile" style="background:${TILE_BG[i % TILE_BG.length]};" data-action="selectCategoryHome" data-name="${escapeHtml(name)}">
+          <div class="name">${escapeHtml(name)}</div>
+          <div class="count">${catCounts[name] || 0} Rezepte</div>
+        </div>`).join("");
+      if (!state.addingCategory) {
+        html += `<div class="tileAdd" data-action="openAddCategory"><span class="plus">＋</span><span class="label">Neue Kategorie</span></div>`;
+      }
+      html += `</div>`;
+      if (state.addingCategory) {
+        html += `<div class="inlineAdd">
+          <input id="newCategoryName" value="${escapeHtml(state.newCategoryName)}" placeholder="Name der Kategorie" data-bind="newCategoryName" />
+          <button class="btnSmall" data-action="addCategory">Hinzufügen</button>
+        </div>`;
+      }
+
+      html += `
+        <div class="sectionTitle">Deine Kochbücher</div>
+        <div class="sectionSub">Eigene Übersammlungen für deine Gerichte</div>
+        <div class="grid2">`;
+      html += data.notebooks.map((n, i) => `
+        <div class="tile" style="background:${TILE_BG[(i + 2) % TILE_BG.length]};" data-action="selectNotebookHome" data-id="${n.id}">
+          <div class="name">${escapeHtml(n.name)}</div>
+          <div class="count">${nbCounts[n.id] || 0} Rezepte</div>
+        </div>`).join("");
+      if (!state.addingNotebook) {
+        html += `<div class="tileAdd" data-action="openAddNotebook"><span class="plus">＋</span><span class="label">Neues Kochbuch</span></div>`;
+      }
+      html += `</div>`;
+      if (state.addingNotebook) {
+        html += `<div class="inlineAdd">
+          <input id="newNotebookName" value="${escapeHtml(state.newNotebookName)}" placeholder="Name des Kochbuchs" data-bind="newNotebookName" />
+          <button class="btnSmall" data-action="addNotebook">Hinzufügen</button>
+        </div>`;
+      }
+
+      return html;
     }
 
+    function recipeTile(r) {
+      return `
+        <div class="recipeTile" data-action="openRecipe" data-id="${r.id}">
+          <div class="photo photoPh" style="${photoStyle(r)}">${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}</div>
+          <div class="title">${escapeHtml(r.title)}</div>
+          <div class="meta">${escapeHtml(r.time || "")}${r.servings ? " · " + escapeHtml(r.servings) : ""}</div>
+        </div>`;
+    }
+
+    // ---------- Collection ----------
     function renderCollection() {
-      const list = loadCollection();
-      emptyHint.style.display = list.length ? "none" : "block";
-      collectionList.innerHTML = list.map((r, i) => `
-        <div class="collectionItem">
+      const filtered = computeFiltered();
+      let html = `
+        <div class="row-between">
           <div>
-            <div class="title">${escapeHtml(r.title || "Ohne Titel")}</div>
-            <div class="meta2">${[r.servings, r.time].filter(Boolean).map(escapeHtml).join(" · ")}</div>
+            <div class="pageTitle">Sammlung</div>
+            <div class="pageCount">${filtered.length} Rezepte</div>
           </div>
-          <button class="open" data-index="${i}">Öffnen</button>
-          <button data-delete="${i}" aria-label="Löschen">✕</button>
+          <div class="headerBtns">
+            <button class="pill ${state.collectionEditMode ? "pillActive" : "pillInactive"}" data-action="toggleCollectionEditMode">${state.collectionEditMode ? "Fertig" : "Bearbeiten"}</button>
+            <button class="pill ${state.sortMode ? "pillActive" : "pillInactive"}" data-action="toggleSortMode">${state.sortMode ? "Fertig" : "Sortieren"}</button>
+          </div>
         </div>
-      `).join("");
 
-      collectionList.querySelectorAll("[data-index]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const r = loadCollection()[Number(btn.dataset.index)];
-          showDetail(r);
-        });
-      });
-      collectionList.querySelectorAll("[data-delete]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const list = loadCollection();
-          list.splice(Number(btn.dataset.delete), 1);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-          renderCollection();
-        });
-      });
+        <div class="searchBar">
+          <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5.5" fill="none" stroke="var(--text-2)" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="var(--text-2)" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <input id="searchInput" value="${escapeHtml(state.search)}" placeholder="Rezepte durchsuchen" data-bind-live="search" />
+        </div>
+
+        <div class="chipRow">${["category", "notebook", "tag", "time"].map((key) => {
+          const labels = { category: "Kategorie", notebook: "Kochbuch", tag: "Tag", time: "Kochzeit" };
+          return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
+        }).join("")}</div>`;
+
+      if (state.filterGroup === "category") {
+        html += `<div class="chipRow">` + ["Alle", ...data.categories].map((name) =>
+          `<button class="chip ${name === state.categoryFilter ? "chipActive" : "chipInactive"}" data-action="setCategoryFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+        ).join("") + `</div>`;
+        if (state.collectionEditMode) {
+          html += `<div class="inlineAdd">
+            <input id="newCategoryName2" value="${escapeHtml(state.newCategoryName)}" placeholder="Neue Kategorie" data-bind="newCategoryName" />
+            <button class="btnSmallGhost" data-action="addCategory">+ Kategorie</button>
+          </div>`;
+        }
+      } else if (state.filterGroup === "notebook") {
+        html += `<div class="chipRow">` + [{ id: "all", name: "Alle" }, ...data.notebooks].map((n) =>
+          `<button class="chip ${n.id === state.notebookFilter ? "chipActive" : "chipInactive"}" data-action="setNotebookFilter" data-id="${n.id}">${escapeHtml(n.name)}</button>`
+        ).join("") + `</div>`;
+        if (state.collectionEditMode) {
+          html += `<div class="inlineAdd">
+            <input id="newNotebookName2" value="${escapeHtml(state.newNotebookName)}" placeholder="Neues Kochbuch" data-bind="newNotebookName" />
+            <button class="btnSmallGhost" data-action="addNotebook">+ Kochbuch</button>
+          </div>`;
+        }
+      } else if (state.filterGroup === "tag") {
+        html += `<div class="chipRow">` + ["Alle", ...data.tags].map((name) =>
+          `<button class="chip ${name === state.tagFilter ? "chipActive" : "chipInactive"}" data-action="setTagFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+        ).join("") + `</div>`;
+        if (state.collectionEditMode) {
+          html += `<div class="inlineAdd">
+            <input id="newTagValue" value="${escapeHtml(state.newTagValue)}" placeholder="Neuer Tag" data-bind="newTagValue" />
+            <button class="btnSmallGhost" data-action="addGlobalTag">+ Tag</button>
+          </div>`;
+        }
+      } else if (state.filterGroup === "time") {
+        html += `<div class="chipRow">` + TIME_BUCKETS.map((name) =>
+          `<button class="chip ${name === state.timeFilter ? "chipActive" : "chipInactive"}" data-action="setTimeFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+        ).join("") + `</div>`;
+      }
+
+      if (state.collectionEditMode) {
+        html += `<div class="fieldLabel">Personen</div>
+          <div class="chipRow" style="flex-wrap:wrap;overflow:visible;">${data.people.map((p) => `<span class="tagPill">${escapeHtml(p)}</span>`).join("")}</div>
+          <div class="inlineAdd">
+            <input id="newPersonName" value="${escapeHtml(state.newPersonName)}" placeholder="Neue Person" data-bind="newPersonName" />
+            <button class="btnSmallGhost" data-action="addPerson">+ Person</button>
+          </div>`;
+      }
+
+      if (filtered.length === 0) {
+        html += `<div class="noResults">Keine Rezepte gefunden.</div>`;
+      } else if (!state.sortMode) {
+        html += `<div class="recipeGrid">` + filtered.map((r) => `
+          <div class="recipeCard" data-action="openRecipe" data-id="${r.id}">
+            <div class="photo photoPh" style="${photoStyle(r)}">${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}</div>
+            <div class="title">${escapeHtml(r.title)}</div>
+            <div class="meta">${escapeHtml(r.time || "")}</div>
+          </div>`).join("") + `</div>`;
+      } else {
+        html += `<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.1rem;">` + filtered.map((r) => `
+          <div class="sortRow" draggable="true" data-drag-id="${r.id}" style="opacity:${state.dragId === r.id ? 0.4 : 1};">
+            <svg class="grip" width="16" height="12" viewBox="0 0 16 12"><rect y="0" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/><rect y="5" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/><rect y="10" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/></svg>
+            <div class="thumb" style="${photoStyle(r)}"></div>
+            <div class="title">${escapeHtml(r.title)}</div>
+          </div>`).join("") + `</div>`;
+      }
+
+      return html;
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, (c) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-      }[c]));
+    // ---------- Add chooser ----------
+    function renderAddChooser() {
+      return `
+        <div class="sheetBackdrop" data-action="closeAddChooser">
+          <div class="sheet" data-stop="1">
+            <div class="sheetTitle">Rezept hinzufügen</div>
+            <button class="chooserOption" data-action="chooseCapture">
+              <svg width="22" height="19" viewBox="0 0 24 21"><path d="M8 2L6.4 4.5H2.5A1.5 1.5 0 001 6v11.5A1.5 1.5 0 002.5 19h19a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-3.9L16 2H8z" fill="none" stroke="var(--accent-text)" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="11" r="4.3" fill="none" stroke="var(--accent-text)" stroke-width="1.8"/></svg>
+              <span class="label">Rezept fotografieren</span>
+            </button>
+            <button class="chooserOption" data-action="chooseManual">
+              <svg width="19" height="19" viewBox="0 0 19 19"><path d="M13.5 1.5l4 4L6 17l-5 1 1-5z" fill="none" stroke="var(--accent-text)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              <span class="label">Manuell erstellen</span>
+            </button>
+            <button class="chooserCancel" data-action="closeAddChooser">Abbrechen</button>
+          </div>
+        </div>`;
     }
 
-    renderCollection();
+    // ---------- Manual add ----------
+    function renderManualAdd() {
+      const d = state.manualDraft;
+      return `
+        <div class="fullSheet">
+          <div class="sheetHeader">
+            <button class="roundBtn" data-action="cancelManualAdd"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            <div class="sheetHeaderTitle">Neues Rezept</div>
+            <div style="width:36px;"></div>
+          </div>
+          <div class="formScroll">
+            <div class="fieldLabel">Titel</div>
+            <input class="textInput titleInput" value="${escapeHtml(d.title)}" placeholder="Name des Rezepts" data-bind-live="manualDraft.title" />
+
+            <div class="fieldLabel">Kategorie</div>
+            <div class="chipRow">${data.categories.map((name) =>
+              `<button class="chip ${name === d.category ? "chipActive" : "chipInactiveAlt"}" data-action="setManualCategory" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+            ).join("")}</div>
+
+            <div class="fieldLabel">Kochbuch</div>
+            <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
+              `<button class="chip ${n.id === d.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setManualNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
+            ).join("")}</div>
+
+            <div class="fieldLabel">Tags</div>
+            <div class="chipRow" style="flex-wrap:wrap;overflow:visible;">${data.tags.map((name) =>
+              `<button class="chipToggle ${d.tags.includes(name) ? "chipActive" : "chipInactiveAlt"}" data-action="toggleManualTag" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+            ).join("")}</div>
+
+            <div class="fieldLabel">Von wem</div>
+            <div class="chipRow">${["Ohne Angabe", ...data.people].map((name) =>
+              `<button class="chip ${(name === "Ohne Angabe" ? !d.source : d.source === name) ? "chipActive" : "chipInactiveAlt"}" data-action="setManualSource" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+            ).join("")}</div>
+
+            <div class="twoCol">
+              <div><div class="fieldLabel">Minuten</div><input class="textInput" type="number" min="1" value="${escapeHtml(d.timeMinutes)}" data-bind-live="manualDraft.timeMinutes" /></div>
+              <div><div class="fieldLabel">Personen</div><input class="textInput" type="number" min="1" value="${escapeHtml(d.servingsCount)}" data-bind-live="manualDraft.servingsCount" /></div>
+            </div>
+
+            <div class="h3" style="margin-top:1.3rem;">Zutaten</div>
+            <div class="ingredientsList">${d.ingredients.map((val, i) => `
+              <div class="listRow">
+                <input value="${escapeHtml(val)}" placeholder="z. B. 200 g Mehl" data-bind-live="manualDraft.ingredients.${i}" />
+                <button class="removeBtn" data-action="removeManualIngredient" data-index="${i}">×</button>
+              </div>`).join("")}</div>
+            <button class="addDashed" data-action="addManualIngredient">+ Zutat hinzufügen</button>
+
+            <div class="h3">Zubereitung</div>
+            <div class="ingredientsList">${d.steps.map((val, i) => `
+              <div class="listRow" style="align-items:flex-start;">
+                <div class="stepNum">${i + 1}</div>
+                <textarea placeholder="Schritt beschreiben" data-bind-live="manualDraft.steps.${i}">${escapeHtml(val)}</textarea>
+                <button class="removeBtn" style="margin-top:0.35rem;" data-action="removeManualStep" data-index="${i}">×</button>
+              </div>`).join("")}</div>
+            <button class="addDashed" data-action="addManualStep">+ Schritt hinzufügen</button>
+          </div>
+          <div class="formFooter">
+            <button class="btnGhost" data-action="cancelManualAdd">Verwerfen</button>
+            <button class="btnPrimary" data-action="saveManualAdd">Speichern</button>
+          </div>
+        </div>`;
+    }
+
+    // ---------- Detail ----------
+    function renderDetail() {
+      const r = getRecipe(state.selectedId);
+      if (!r) return "";
+      const isFav = !!r.favorite;
+      const draft = state.draft;
+      const baseServings = parseInt(r.servings, 10) || 1;
+      const factor = state.scaleServings / baseServings;
+      const heroPhoto = r.dishPhoto || r.photo;
+
+      let html = `<div class="fullSheet">
+        <div class="detailHero photoPh" style="${heroPhoto ? `background-image:url('${heroPhoto}');` : photoStyle(r)}">
+          <button class="heroBtn" style="left:1rem;" data-action="closeRecipe"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <button class="heroBtn" style="right:1rem;" data-action="toggleFavorite">
+            <svg width="18" height="16" viewBox="0 0 18 16"><path d="M9 15S1 10 1 4.8A3.8 3.8 0 019 3a3.8 3.8 0 018 1.8C17 10 9 15 9 15z" fill="${isFav ? "var(--heart)" : "none"}" stroke="${isFav ? "none" : "#000"}" stroke-width="1.6"/></svg>
+          </button>
+          ${!heroPhoto ? `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>` : ""}
+        </div>
+        <div class="formScroll">`;
+
+      if (!state.editMode) {
+        html += `
+          <span class="badge">${escapeHtml(r.category || "Ohne Kategorie")}</span>
+          <div class="tagRow">${(r.tags || []).map((t) => `<span class="tagPill">${escapeHtml(t)}</span>`).join("")}</div>
+          <div class="detailTitle">${escapeHtml(r.title)}</div>
+          <div class="detailMeta">${escapeHtml(r.time || "")}${r.servings ? " · " + escapeHtml(r.servings) : ""}</div>
+          ${r.source ? `<div class="detailMeta">Von ${escapeHtml(r.source)}</div>` : ""}
+          <div class="actionRow">
+            <button class="actionBtn" data-action="openEdit"><svg width="13" height="13" viewBox="0 0 16 16"><path d="M11.5 1.5l3 3L5 14l-4 1 1-4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> Bearbeiten</button>
+            <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
+            <button class="actionBtn" data-action="shareImage"><svg width="12" height="14" viewBox="0 0 14 16"><path d="M7 1v9M3 4l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 9v5a1 1 0 001 1h10a1 1 0 001-1V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Teilen</button>
+          </div>
+          <div class="h3">Kochbuch</div>
+          <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Kein Kochbuch")}</span>
+
+          <div class="row-between" style="margin-top:1.5rem;">
+            <div class="h3" style="margin-top:0;">Zutaten</div>
+            <div class="scaleRow">
+              <button class="roundSmall" data-action="decScale">−</button>
+              <div style="font-size:0.8rem;font-weight:600;color:var(--chip-text);min-width:64px;text-align:center;">${state.scaleServings} Portionen</div>
+              <button class="roundSmall" data-action="incScale">+</button>
+            </div>
+          </div>
+          <div class="ingredientsList">${(r.ingredients || []).map((ing) => `
+            <div class="ingredientRow"><div class="dot"></div><div style="font-size:0.9rem;color:oklch(0.3 0.01 75);">${escapeHtml(scaleIngredientText(ing, factor))}</div></div>`).join("")}</div>
+
+          <div class="h3">Zubereitung</div>
+          <div class="stepsList">${(r.steps || []).map((text, i) => `
+            <div class="stepItem"><div class="stepNum" style="margin-top:0;">${i + 1}</div><div class="stepText">${escapeHtml(text)}</div></div>`).join("")}</div>
+
+          <div class="h3">Notizen</div>
+          <textarea class="notesArea" placeholder="Eigene Anmerkungen" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
+        `;
+      } else {
+        html += `
+          <div class="fieldLabel">Kategorie</div>
+          <div class="chipRow">${data.categories.map((name) =>
+            `<button class="chip ${name === draft.category ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftCategory" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+          ).join("")}</div>
+
+          <div class="fieldLabel">Tags</div>
+          <div class="chipRow" style="flex-wrap:wrap;overflow:visible;">${data.tags.map((name) =>
+            `<button class="chipToggle ${draft.tags.includes(name) ? "chipActive" : "chipInactiveAlt"}" data-action="toggleDraftTag" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+          ).join("")}</div>
+          <div class="inlineAdd">
+            <input value="${escapeHtml(state.newTagValue)}" placeholder="Neuer Tag" data-bind="newTagValue" />
+            <button class="btnSmallGhost" data-action="addGlobalTag">+ Tag</button>
+          </div>
+
+          <input class="textInput titleInput" style="margin-top:1rem;" value="${escapeHtml(draft.title)}" data-bind-live="draft.title" />
+
+          <div class="twoCol">
+            <div><div class="fieldLabel">Minuten</div><input class="textInput" type="number" min="1" value="${escapeHtml(draft.timeMinutes)}" data-bind-live="draft.timeMinutes" /></div>
+            <div><div class="fieldLabel">Personen</div><input class="textInput" type="number" min="1" value="${escapeHtml(draft.servingsCount)}" data-bind-live="draft.servingsCount" /></div>
+          </div>
+
+          <div class="fieldLabel">Von wem</div>
+          <div class="chipRow">${["Ohne Angabe", ...data.people].map((name) =>
+            `<button class="chip ${(name === "Ohne Angabe" ? !draft.source : draft.source === name) ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftSource" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+          ).join("")}</div>
+
+          <div class="fieldLabel">Foto vom Gericht</div>
+          ${r.dishPhoto ? `
+            <div class="photoPh" style="height:130px;border-radius:15px;margin-top:0.5rem;background-image:url('${r.dishPhoto}');display:flex;align-items:flex-start;justify-content:flex-end;">
+              <button class="btnSmallGhost" style="margin:0.5rem;background:rgba(255,255,255,0.85);" data-action="startDishCapture">Foto ändern</button>
+            </div>` : `
+            <button class="addDashed" style="margin-top:0.5rem;padding:1.2rem;" data-action="startDishCapture">Foto hinzufügen</button>`}
+
+          <div class="h3">Kochbuch</div>
+          <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
+            `<button class="chip ${n.id === draft.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
+          ).join("")}</div>
+
+          <div class="h3">Zutaten</div>
+          <div class="ingredientsList">${draft.ingredients.map((val, i) => `
+            <div class="listRow">
+              <input value="${escapeHtml(val)}" data-bind-live="draft.ingredients.${i}" />
+              <button class="removeBtn" data-action="removeDraftIngredient" data-index="${i}">×</button>
+            </div>`).join("")}</div>
+          <button class="addDashed" data-action="addDraftIngredient">+ Zutat hinzufügen</button>
+
+          <div class="h3">Zubereitung</div>
+          <div class="ingredientsList">${draft.steps.map((val, i) => `
+            <div class="listRow" style="align-items:flex-start;">
+              <div class="stepNum">${i + 1}</div>
+              <textarea data-bind-live="draft.steps.${i}">${escapeHtml(val)}</textarea>
+              <button class="removeBtn" style="margin-top:0.35rem;" data-action="removeDraftStep" data-index="${i}">×</button>
+            </div>`).join("")}</div>
+          <button class="addDashed" data-action="addDraftStep">+ Schritt hinzufügen</button>
+
+          <div class="h3">Notizen</div>
+          <textarea class="notesArea" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
+
+          <div class="formFooter" style="padding:1.4rem 0 0;">
+            <button class="btnGhost" data-action="cancelEdit">Abbrechen</button>
+            <button class="btnPrimary" data-action="saveEdit">Fertig</button>
+          </div>
+          <button class="deleteLink" data-action="openDeleteConfirm">Rezept löschen</button>
+        `;
+      }
+
+      html += `</div></div>`;
+      return html;
+    }
+
+    // ---------- Delete confirm ----------
+    function renderDeleteConfirm() {
+      return `
+        <div class="confirmBackdrop">
+          <div class="confirmBox">
+            <div class="confirmTitle">Rezept wirklich löschen?</div>
+            <div class="confirmText">Dieser Schritt kann nicht rückgängig gemacht werden.</div>
+            <div class="confirmRow">
+              <button class="btnGhost" data-action="cancelDeleteConfirm">Abbrechen</button>
+              <button class="btnDanger" data-action="confirmDelete">Löschen</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ---------- Cook mode ----------
+    function renderCookMode() {
+      const r = getRecipe(state.cookMode.recipeId);
+      if (!r) return "";
+      const idx = state.cookMode.stepIndex;
+      const steps = r.steps || [];
+      const isLast = idx >= steps.length - 1;
+      return `
+        <div class="cookScreen">
+          <div class="cookHeader">
+            <div class="cookTitle">${escapeHtml(r.title)}</div>
+            <button class="roundBtn" style="background:rgba(255,255,255,0.12);" data-action="closeCookMode"><svg width="12" height="12" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          </div>
+          <div class="cookBody">
+            <div class="cookStepLabel">Schritt ${idx + 1} von ${steps.length}</div>
+            <div class="cookStepText">${escapeHtml(steps[idx] || "")}</div>
+          </div>
+          <div class="cookFooter">
+            ${idx > 0 ? `<button class="cookBtn" data-action="cookPrev">Zurück</button>` : ""}
+            <button class="cookBtn cookBtnNext" data-action="cookNext">${isLast ? "Fertig" : "Weiter"}</button>
+          </div>
+        </div>`;
+    }
+
+    // ---------- Capture ----------
+    function renderCapture() {
+      if (state.captureStep === "processing") {
+        return `
+          <div class="captureScreen">
+            <div class="spinner"></div>
+            <div class="captureText">Dein Rezept wird erstellt …</div>
+            <div class="captureSub">Zutaten und Schritte werden erkannt</div>
+          </div>`;
+      }
+      if (state.captureStep === "error") {
+        return `
+          <div class="captureScreen">
+            <div class="captureText captureErr">Fehler beim Auslesen</div>
+            <div class="captureSub">${escapeHtml(state.captureError)}</div>
+            <button class="btnPrimary" style="flex:none;padding:0.7rem 1.4rem;" data-action="discardCapture">Schließen</button>
+          </div>`;
+      }
+      // result
+      const p = state.pendingRecipe;
+      return `
+        <div class="fullSheet">
+          <div class="sheetHeader">
+            <button class="roundBtn" data-action="discardCapture"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            <div class="sheetHeaderTitle">Neues Rezept</div>
+            <div style="width:36px;"></div>
+          </div>
+          <div class="formScroll">
+            <span class="badge" style="background:var(--accent-soft);color:var(--accent-text);">✓ Automatisch erkannt</span>
+            <div class="photoPh" style="height:170px;border-radius:16px;margin-top:0.9rem;${state.pendingThumb ? `background-image:url('${state.pendingThumb}');` : ""}"></div>
+            <div class="detailTitle" style="margin-top:0.9rem;">${escapeHtml(p.title || "Ohne Titel")}</div>
+            <div class="detailMeta">${[p.servings, p.time].filter(Boolean).map(escapeHtml).join(" · ")}</div>
+            <div class="h3">Zutaten</div>
+            <div class="ingredientsList">${(p.ingredients || []).map((ing) => `<div class="ingredientRow"><div class="dot"></div><div style="font-size:0.9rem;">${escapeHtml(ing)}</div></div>`).join("")}</div>
+            <div class="h3">Zubereitung</div>
+            <div class="stepsList">${(p.instructions || []).map((s, i) => `<div class="stepItem"><div class="stepNum" style="margin-top:0;">${i + 1}</div><div class="stepText">${escapeHtml(s)}</div></div>`).join("")}</div>
+          </div>
+          <div class="formFooter">
+            <button class="btnGhost" data-action="discardCapture">Verwerfen</button>
+            <button class="btnPrimary" data-action="saveCapture">Speichern</button>
+          </div>
+        </div>`;
+    }
+
+    // ---------- Event binding ----------
+    function getPath(obj, path) {
+      return path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+    }
+    function setPath(obj, path, value) {
+      const parts = path.split(".");
+      const last = parts.pop();
+      const target = parts.reduce((o, k) => o[k], obj);
+      target[last] = value;
+    }
+
+    function bindEvents() {
+      app.querySelectorAll("[data-action]").forEach((el) => {
+        const action = el.dataset.action;
+        if (!ACTIONS[action]) return;
+        const evt = el.tagName === "INPUT" || el.tagName === "TEXTAREA" ? "click" : "click";
+        el.addEventListener(evt, (e) => {
+          if (el.dataset.stop) e.stopPropagation();
+          else if (el.closest("[data-stop]") && el !== el.closest("[data-stop]")) {} // noop
+          ACTIONS[action](el, e);
+        });
+      });
+      // backdrop stop-propagation for sheet content
+      app.querySelectorAll("[data-stop]").forEach((el) => {
+        el.addEventListener("click", (e) => e.stopPropagation());
+      });
+
+      // live text bindings. Most fields only need their value captured for later save
+      // (no re-render, so typing never loses focus). The search field is the exception —
+      // the visible list depends on it changing live, so it re-renders with focus/cursor preserved.
+      app.querySelectorAll("[data-bind-live]").forEach((el) => {
+        el.addEventListener("input", () => {
+          const path = el.dataset.bindLive;
+          if (path === "__notes") {
+            const r = getRecipe(state.selectedId);
+            if (r) { r.notes = el.value; saveRecipes(); }
+            return;
+          }
+          setPath(state, path, el.value);
+          if (path === "search") rerenderPreservingFocus(el);
+        });
+      });
+      app.querySelectorAll("[data-bind]").forEach((el) => {
+        el.addEventListener("input", () => { state[el.dataset.bind] = el.value; });
+      });
+
+      // sort mode drag & drop
+      if (state.sortMode) {
+        app.querySelectorAll("[data-drag-id]").forEach((el) => {
+          const id = el.dataset.dragId;
+          el.addEventListener("dragstart", () => { state.dragId = id; render(); });
+          el.addEventListener("dragover", (e) => e.preventDefault());
+          el.addEventListener("drop", (e) => {
+            e.preventDefault();
+            onDrop(id);
+          });
+        });
+      }
+    }
+
+    function onDrop(targetId) {
+      const dragId = state.dragId;
+      state.dragId = null;
+      if (dragId == null || dragId === targetId) { render(); return; }
+      const filtered = computeFiltered();
+      const ids = filtered.map((r) => r.id);
+      const from = ids.indexOf(dragId);
+      const to = ids.indexOf(targetId);
+      if (from === -1 || to === -1) { render(); return; }
+      ids.splice(from, 1);
+      ids.splice(to, 0, dragId);
+      const slotIndices = ids.map((id) => data.recipes.findIndex((r) => r.id === id)).sort((a, b) => a - b);
+      const byId = {}; data.recipes.forEach((r) => (byId[r.id] = r));
+      slotIndices.forEach((slotIdx, i) => { data.recipes[slotIdx] = byId[ids[i]]; });
+      saveRecipes();
+      render();
+    }
+
+    // ---------- Actions ----------
+    const ACTIONS = {
+      goHome: () => { state.tab = "home"; render(); },
+      goCollection: () => { state.tab = "collection"; render(); },
+      toggleRecentOpen: () => { state.recentOpen = !state.recentOpen; render(); },
+      toggleFavoritesOpen: () => { state.favoritesOpen = !state.favoritesOpen; render(); },
+      selectCategoryHome: (el) => { state.categoryFilter = el.dataset.name; state.notebookFilter = "all"; state.filterGroup = "category"; state.tab = "collection"; render(); },
+      selectNotebookHome: (el) => { state.notebookFilter = el.dataset.id; state.categoryFilter = "Alle"; state.filterGroup = "notebook"; state.tab = "collection"; render(); },
+      openAddCategory: () => { state.addingCategory = true; state.newCategoryName = ""; render(); },
+      addCategory: () => {
+        const name = state.newCategoryName.trim();
+        if (!name) return;
+        if (!data.categories.includes(name)) { data.categories.push(name); saveCategories(); }
+        state.addingCategory = false; state.newCategoryName = "";
+        render();
+      },
+      openAddNotebook: () => { state.addingNotebook = true; state.newNotebookName = ""; render(); },
+      addNotebook: () => {
+        const name = state.newNotebookName.trim();
+        if (!name) return;
+        data.notebooks.push({ id: uid(), name });
+        saveNotebooks();
+        state.addingNotebook = false; state.newNotebookName = "";
+        render();
+      },
+
+      toggleCollectionEditMode: () => { state.collectionEditMode = !state.collectionEditMode; render(); },
+      setFilterGroup: (el) => { state.filterGroup = el.dataset.name; render(); },
+      setCategoryFilter: (el) => { state.categoryFilter = el.dataset.name; render(); },
+      setNotebookFilter: (el) => { state.notebookFilter = el.dataset.id === "all" ? "all" : el.dataset.id; render(); },
+      setTagFilter: (el) => { state.tagFilter = el.dataset.name; render(); },
+      setTimeFilter: (el) => { state.timeFilter = el.dataset.name; render(); },
+      addGlobalTag: () => {
+        const v = state.newTagValue.trim();
+        if (!v) return;
+        if (!data.tags.includes(v)) { data.tags.push(v); saveTags(); }
+        state.newTagValue = "";
+        render();
+      },
+      addPerson: () => {
+        const v = state.newPersonName.trim();
+        if (!v) return;
+        if (!data.people.includes(v)) { data.people.push(v); savePeople(); }
+        state.newPersonName = "";
+        render();
+      },
+      toggleSortMode: () => { state.sortMode = !state.sortMode; render(); },
+
+      openRecipe: (el) => {
+        const id = el.dataset.id;
+        const r = getRecipe(id);
+        state.selectedId = id;
+        state.scaleServings = r ? (parseInt(r.servings, 10) || 1) : 1;
+        state.editMode = false; state.draft = null;
+        render();
+      },
+      closeRecipe: () => { state.selectedId = null; state.editMode = false; state.draft = null; render(); },
+      toggleFavorite: () => {
+        const r = getRecipe(state.selectedId);
+        if (r) { r.favorite = !r.favorite; saveRecipes(); }
+        render();
+      },
+      decScale: () => { state.scaleServings = Math.max(1, state.scaleServings - 1); render(); },
+      incScale: () => { state.scaleServings = state.scaleServings + 1; render(); },
+
+      openEdit: () => {
+        const r = getRecipe(state.selectedId);
+        if (!r) return;
+        state.editMode = true;
+        state.newTagValue = "";
+        state.draft = {
+          title: r.title, category: r.category, notebookId: r.notebookId, source: r.source || "",
+          tags: [...(r.tags || [])], ingredients: [...(r.ingredients || [])], steps: [...(r.steps || [])],
+          timeMinutes: parseInt(r.time, 10) || 1, servingsCount: parseInt(r.servings, 10) || 1,
+        };
+        render();
+      },
+      cancelEdit: () => { state.editMode = false; state.draft = null; render(); },
+      setDraftCategory: (el) => { state.draft.category = el.dataset.name; render(); },
+      setDraftNotebook: (el) => { state.draft.notebookId = el.dataset.id || null; render(); },
+      toggleDraftTag: (el) => {
+        const name = el.dataset.name;
+        const t = state.draft.tags;
+        state.draft.tags = t.includes(name) ? t.filter((x) => x !== name) : [...t, name];
+        render();
+      },
+      setDraftSource: (el) => { state.draft.source = el.dataset.name === "Ohne Angabe" ? "" : el.dataset.name; render(); },
+      addDraftIngredient: () => { state.draft.ingredients.push(""); render(); },
+      removeDraftIngredient: (el) => { state.draft.ingredients.splice(Number(el.dataset.index), 1); render(); },
+      addDraftStep: () => { state.draft.steps.push(""); render(); },
+      removeDraftStep: (el) => { state.draft.steps.splice(Number(el.dataset.index), 1); render(); },
+      saveEdit: () => {
+        const r = getRecipe(state.selectedId);
+        const d = state.draft;
+        Object.assign(r, {
+          title: d.title.trim() || "Ohne Titel", category: d.category, notebookId: d.notebookId, source: d.source,
+          tags: d.tags, ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
+          time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
+        });
+        saveRecipes();
+        state.editMode = false; state.draft = null;
+        state.scaleServings = parseInt(r.servings, 10) || 1;
+        render();
+      },
+
+      openDeleteConfirm: () => { state.confirmDeleteOpen = true; render(); },
+      cancelDeleteConfirm: () => { state.confirmDeleteOpen = false; render(); },
+      confirmDelete: () => {
+        data.recipes = data.recipes.filter((r) => r.id !== state.selectedId);
+        saveRecipes();
+        state.confirmDeleteOpen = false; state.editMode = false; state.draft = null; state.selectedId = null;
+        render();
+      },
+
+      startCookMode: () => {
+        state.cookMode = { recipeId: state.selectedId, stepIndex: 0 };
+        if (navigator.wakeLock) {
+          navigator.wakeLock.request("screen").then((wl) => { window.__wakeLock = wl; }).catch(() => {});
+        }
+        render();
+      },
+      closeCookMode: () => {
+        state.cookMode = null;
+        if (window.__wakeLock) { window.__wakeLock.release().catch(() => {}); window.__wakeLock = null; }
+        render();
+      },
+      cookNext: () => {
+        const r = getRecipe(state.cookMode.recipeId);
+        if (!r) return;
+        if (state.cookMode.stepIndex >= (r.steps || []).length - 1) { ACTIONS.closeCookMode(); return; }
+        state.cookMode.stepIndex++;
+        render();
+      },
+      cookPrev: () => { state.cookMode.stepIndex = Math.max(0, state.cookMode.stepIndex - 1); render(); },
+
+      startDishCapture: () => { dishInput.value = ""; dishInput.click(); },
+
+      openAddChooser: () => { state.addChooserOpen = true; render(); },
+      closeAddChooser: () => { state.addChooserOpen = false; render(); },
+      chooseCapture: () => { state.addChooserOpen = false; scanInput.value = ""; scanInput.click(); render(); },
+      chooseManual: () => {
+        state.addChooserOpen = false;
+        state.manualAddOpen = true;
+        state.manualDraft = { title: "", category: data.categories[0] || "", notebookId: null, tags: [], source: "", timeMinutes: 30, servingsCount: 2, ingredients: [""], steps: [""] };
+        render();
+      },
+      cancelManualAdd: () => { state.manualAddOpen = false; state.manualDraft = null; render(); },
+      setManualCategory: (el) => { state.manualDraft.category = el.dataset.name; render(); },
+      setManualNotebook: (el) => { state.manualDraft.notebookId = el.dataset.id || null; render(); },
+      toggleManualTag: (el) => {
+        const name = el.dataset.name;
+        const t = state.manualDraft.tags;
+        state.manualDraft.tags = t.includes(name) ? t.filter((x) => x !== name) : [...t, name];
+        render();
+      },
+      setManualSource: (el) => { state.manualDraft.source = el.dataset.name === "Ohne Angabe" ? "" : el.dataset.name; render(); },
+      addManualIngredient: () => { state.manualDraft.ingredients.push(""); render(); },
+      removeManualIngredient: (el) => { state.manualDraft.ingredients.splice(Number(el.dataset.index), 1); render(); },
+      addManualStep: () => { state.manualDraft.steps.push(""); render(); },
+      removeManualStep: (el) => { state.manualDraft.steps.splice(Number(el.dataset.index), 1); render(); },
+      saveManualAdd: () => {
+        const d = state.manualDraft;
+        const recipe = {
+          id: uid(), title: d.title.trim() || "Neues Rezept", category: d.category, notebookId: d.notebookId,
+          time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
+          notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
+          ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
+        };
+        data.recipes.unshift(recipe);
+        saveRecipes();
+        state.manualAddOpen = false; state.manualDraft = null; state.tab = "home";
+        render();
+      },
+
+      discardCapture: () => { state.captureStep = null; state.pendingRecipe = null; state.pendingThumb = null; render(); },
+      saveCapture: () => {
+        const p = state.pendingRecipe;
+        const recipe = {
+          id: uid(), title: p.title || "Ohne Titel", category: data.categories[0] || "", notebookId: null,
+          time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
+          photo: state.pendingThumb, dishPhoto: null, tags: [],
+          ingredients: p.ingredients || [], steps: p.instructions || [],
+        };
+        data.recipes.unshift(recipe);
+        saveRecipes();
+        state.captureStep = null; state.pendingRecipe = null; state.pendingThumb = null; state.tab = "home";
+        render();
+      },
+
+      shareImage: () => shareImage(),
+    };
+
+    // ---------- Real capture flow ----------
+    scanInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      state.captureStep = "processing";
+      render();
+      try {
+        const [apiImg, thumb] = await Promise.all([
+          resizeImage(file, 1600, 0.82),
+          resizeImage(file, 640, 0.7),
+        ]);
+        const res = await fetch("/.netlify/functions/extract-recipe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ image: apiImg.base64, mediaType: apiImg.mediaType }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Unbekannter Fehler");
+        state.pendingRecipe = json;
+        state.pendingThumb = thumb.dataUrl;
+        state.captureStep = "result";
+      } catch (err) {
+        state.captureError = err.message;
+        state.captureStep = "error";
+      }
+      render();
+    });
+
+    dishInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const r = getRecipe(state.selectedId);
+      if (!r) return;
+      try {
+        const { dataUrl } = await resizeImage(file, 640, 0.7);
+        r.dishPhoto = dataUrl;
+        saveRecipes();
+      } catch {}
+      render();
+    });
+
+    // ---------- Share as image ----------
+    function shareImage() {
+      const r = getRecipe(state.selectedId);
+      if (!r) return;
+      const W = 800, H = 1080;
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d");
+
+      function drawRest() {
+        ctx.font = "600 22px -apple-system, system-ui, sans-serif";
+        const catText = r.category || "Ohne Kategorie";
+        const catW = ctx.measureText(catText).width + 32;
+        ctx.fillStyle = "#f5ded0";
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(40, photoH + 26, catW, 46, 23); else ctx.rect(40, photoH + 26, catW, 46);
+        ctx.fill();
+        ctx.fillStyle = "#7a4a20";
+        ctx.fillText(catText, 56, photoH + 57);
+
+        let y = photoH + 130;
+        ctx.fillStyle = "#2b2822";
+        ctx.font = "700 42px -apple-system, system-ui, sans-serif";
+        y = wrapText(ctx, r.title, 40, y, W - 80, 50);
+
+        y += 6;
+        ctx.font = "20px -apple-system, system-ui, sans-serif";
+        ctx.fillStyle = "#807a6e";
+        ctx.fillText([r.time, r.servings].filter(Boolean).join(" · "), 40, y);
+
+        y += 50;
+        ctx.font = "700 24px -apple-system, system-ui, sans-serif";
+        ctx.fillStyle = "#2b2822";
+        ctx.fillText("Zutaten", 40, y);
+        y += 14;
+        ctx.font = "20px -apple-system, system-ui, sans-serif";
+        (r.ingredients || []).forEach((ing) => {
+          y += 36;
+          ctx.fillStyle = "#3a6b4a";
+          ctx.beginPath(); ctx.arc(46, y - 7, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#3a3730";
+          y = wrapText(ctx, ing, 62, y, W - 100, 28) - 28;
+        });
+
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const filename = (r.title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() + ".png";
+          if (navigator.share && navigator.canShare) {
+            const file = new File([blob], filename, { type: "image/png" });
+            if (navigator.canShare({ files: [file] })) {
+              navigator.share({ files: [file], title: r.title }).catch(() => {});
+              setTimeout(() => URL.revokeObjectURL(url), 3000);
+              return;
+            }
+          }
+          const a = document.createElement("a");
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }, "image/png");
+      }
+
+      const photoH = 380;
+      ctx.fillStyle = "#f5f0e6";
+      ctx.fillRect(0, 0, W, H);
+
+      if (r.photo) {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.max(W / img.width, photoH / img.height);
+          const dw = img.width * scale, dh = img.height * scale;
+          ctx.drawImage(img, (W - dw) / 2, (photoH - dh) / 2, dw, dh);
+          drawRest();
+        };
+        img.onerror = drawRest;
+        img.src = r.photo;
+      } else {
+        const idx = Math.abs(hashStr(r.id)) % COLOR_PAIRS.length;
+        const grad = ctx.createLinearGradient(0, 0, W, photoH);
+        grad.addColorStop(0, "#c98a5a"); grad.addColorStop(1, "#e0b183");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, photoH);
+        drawRest();
+      }
+    }
+
+    render();
   </script>
 </body>
 </html>

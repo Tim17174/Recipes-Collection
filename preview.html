@@ -193,36 +193,14 @@
   </nav>
 </div>
 
+<script src="recipe-ui.js"></script>
 <script>
   const scanBtn = document.getElementById("scanBtn");
   const statusEl = document.getElementById("status");
   const preview = document.getElementById("preview");
   const resultEl = document.getElementById("result");
-  const collectionList = document.getElementById("collectionList");
-  const emptyHint = document.getElementById("emptyHint");
-  const detailResult = document.getElementById("detailResult");
-  const backBtn = document.getElementById("backBtn");
 
-  const views = {
-    scanView: document.getElementById("scanView"),
-    collectionView: document.getElementById("collectionView"),
-    detailView: document.getElementById("detailView"),
-  };
-  const tabs = [document.getElementById("tabScan"), document.getElementById("tabCollection")];
-
-  tabs.forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
-  backBtn.addEventListener("click", () => showView("collectionView"));
-
-  function showView(name) {
-    Object.entries(views).forEach(([key, el]) => el.classList.toggle("active", key === name));
-    const tabName = name === "detailView" ? "collectionView" : name;
-    tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === tabName));
-  }
-
-  function showDetail(recipe) {
-    showView("detailView");
-    renderCard(recipe, false, detailResult);
-  }
+  const ui = initRecipeUI("recipeCollectionPreview");
 
   const SAMPLE_RECIPES = [
     {
@@ -259,8 +237,6 @@
     },
   ];
   let sampleIndex = 0;
-  let currentRecipe = null;
-  const STORAGE_KEY = "recipeCollectionPreview";
 
   scanBtn.addEventListener("click", simulateScan);
 
@@ -277,95 +253,12 @@
       statusEl.textContent = "Rezept wird gelesen… (kann ein paar Sekunden dauern)";
 
       setTimeout(() => {
-        currentRecipe = SAMPLE_RECIPES[sampleIndex % SAMPLE_RECIPES.length];
+        const recipe = SAMPLE_RECIPES[sampleIndex % SAMPLE_RECIPES.length];
         sampleIndex++;
+        ui.setCurrentRecipe(recipe);
         statusEl.textContent = "";
-        renderCard(currentRecipe, true, resultEl);
+        ui.renderCard(recipe, true, resultEl);
       }, 900);
     }, 500);
   }
-
-  function renderCard(recipe, withActions, target) {
-    const ingredients = (recipe.ingredients || []).map((i) => `<li>${escapeHtml(i)}</li>`).join("");
-    const steps = (recipe.instructions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
-    const meta = [recipe.servings, recipe.time].filter(Boolean).map(escapeHtml).join(" · ");
-
-    target.innerHTML = `
-      <div class="card">
-        <h2>${escapeHtml(recipe.title || "Ohne Titel")}</h2>
-        ${meta ? `<div class="meta">${meta}</div>` : ""}
-        ${ingredients ? `<h3>Zutaten</h3><ul>${ingredients}</ul>` : ""}
-        ${steps ? `<h3>Zubereitung</h3><ol>${steps}</ol>` : ""}
-      </div>
-      ${withActions ? `
-        <div class="cardActions">
-          <button id="saveBtn">Speichern</button>
-          <button id="discardBtn">Verwerfen</button>
-        </div>` : ""}
-    `;
-
-    if (withActions) {
-      document.getElementById("saveBtn").addEventListener("click", saveCurrentRecipe);
-      document.getElementById("discardBtn").addEventListener("click", () => {
-        resultEl.innerHTML = "";
-        preview.style.display = "none";
-        currentRecipe = null;
-      });
-    }
-  }
-
-  function saveCurrentRecipe() {
-    if (!currentRecipe) return;
-    const list = loadCollection();
-    list.unshift({ ...currentRecipe, savedAt: new Date().toISOString() });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    resultEl.innerHTML = "";
-    preview.style.display = "none";
-    currentRecipe = null;
-    renderCollection();
-    showView("collectionView");
-  }
-
-  function loadCollection() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch { return []; }
-  }
-
-  function renderCollection() {
-    const list = loadCollection();
-    emptyHint.style.display = list.length ? "none" : "block";
-    collectionList.innerHTML = list.map((r, i) => `
-      <div class="collectionItem">
-        <div>
-          <div class="title">${escapeHtml(r.title || "Ohne Titel")}</div>
-          <div class="meta2">${[r.servings, r.time].filter(Boolean).map(escapeHtml).join(" · ")}</div>
-        </div>
-        <button class="open" data-index="${i}">Öffnen</button>
-        <button data-delete="${i}" aria-label="Löschen">✕</button>
-      </div>
-    `).join("");
-
-    collectionList.querySelectorAll("[data-index]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const r = loadCollection()[Number(btn.dataset.index)];
-        showDetail(r);
-      });
-    });
-    collectionList.querySelectorAll("[data-delete]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const list = loadCollection();
-        list.splice(Number(btn.dataset.delete), 1);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-        renderCollection();
-      });
-    });
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[c]));
-  }
-
-  renderCollection();
 </script>
