@@ -143,9 +143,9 @@
     .tabbar {
       position: fixed; bottom: 0; left: 0; right: 0;
       display: flex; justify-content: space-around; align-items: center;
-      padding: 0.55rem 0 max(1.4rem, calc(0.55rem + env(safe-area-inset-bottom))); box-sizing: border-box;
+      padding: 0.6rem 0 calc(0.9rem + env(safe-area-inset-bottom)); box-sizing: border-box;
       backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
-      background: rgba(255,255,255,0.72); border-top: 0.5px solid rgba(0,0,0,0.08); z-index: 30;
+      background: rgba(253,251,247,0.96); border-top: 0.5px solid rgba(0,0,0,0.08); z-index: 30;
     }
     .tabbar button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; width: 70px; padding: 0; }
     .tabbar .tlabel { font-size: 0.68rem; font-weight: 600; }
@@ -153,7 +153,7 @@
     .tabOff { color: oklch(0.65 0.01 75); }
 
     .fab {
-      position: fixed; bottom: max(58px, calc(48px + env(safe-area-inset-bottom))); left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(46px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
       width: 60px; height: 60px; border-radius: 50%; background: var(--accent); border: none;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 6px 18px oklch(0.4 0.07 152 / 0.4); z-index: 40;
@@ -248,7 +248,6 @@
 </head>
 <body>
   <div id="app"></div>
-  <div id="debugBadge" style="position:fixed;top:45%;left:4px;right:4px;z-index:999;background:rgba(0,0,0,0.9);color:#7fff7f;font:12px/1.5 monospace;padding:10px 12px;border-radius:10px;pointer-events:none;white-space:pre-wrap;"></div>
   <input id="scanInput" type="file" accept="image/*" capture="environment" style="display:none" />
   <input id="dishInput" type="file" accept="image/*" capture="environment" style="display:none" />
 
@@ -1374,30 +1373,6 @@
     }
 
     render();
-
-    // TEMPORARY diagnostic badge — remove once the bottom-inset issue is confirmed fixed.
-    (function debugSafeArea() {
-      const probe = document.createElement("div");
-      probe.style.cssText = "position:fixed;bottom:0;left:0;padding-bottom:env(safe-area-inset-bottom);padding-top:env(safe-area-inset-top);visibility:hidden;";
-      document.body.appendChild(probe);
-      const cs = getComputedStyle(probe);
-      const badge = document.getElementById("debugBadge");
-      const tabbar = document.querySelector(".tabbar");
-      const tbRect = tabbar ? tabbar.getBoundingClientRect() : null;
-      const tbPadBottom = tabbar ? getComputedStyle(tabbar).paddingBottom : "n/a";
-      const bodyRect = document.body.getBoundingClientRect();
-      if (badge) {
-        badge.textContent =
-          "safe-bottom: " + cs.paddingBottom + "  safe-top: " + cs.paddingTop +
-          "\ninnerHeight: " + window.innerHeight + "  visualViewport: " + (window.visualViewport ? Math.round(window.visualViewport.height) : "n/a") +
-          "\nstandalone: " + (window.navigator.standalone === true) + "  dpr: " + window.devicePixelRatio +
-          "\ntabbar.bottom: " + (tbRect ? Math.round(tbRect.bottom) : "n/a") +
-          "  gap-to-innerHeight: " + (tbRect ? Math.round(window.innerHeight - tbRect.bottom) : "n/a") +
-          "\ntabbar padBottom(css): " + tbPadBottom +
-          "\nbody.height: " + Math.round(bodyRect.height);
-      }
-      probe.remove();
-    })();
   </script>
 </body>
 </html>
