@@ -248,6 +248,7 @@
 </head>
 <body>
   <div id="app"></div>
+  <div id="debugBadge" style="position:fixed;top:4px;left:4px;right:4px;z-index:999;background:rgba(0,0,0,0.85);color:#7fff7f;font:11px/1.4 monospace;padding:6px 8px;border-radius:8px;pointer-events:none;white-space:pre-wrap;"></div>
   <input id="scanInput" type="file" accept="image/*" capture="environment" style="display:none" />
   <input id="dishInput" type="file" accept="image/*" capture="environment" style="display:none" />
 
@@ -1373,6 +1374,22 @@
     }
 
     render();
+
+    // TEMPORARY diagnostic badge — remove once the bottom-inset issue is confirmed fixed.
+    (function debugSafeArea() {
+      const probe = document.createElement("div");
+      probe.style.cssText = "position:fixed;bottom:0;left:0;padding-bottom:env(safe-area-inset-bottom);padding-top:env(safe-area-inset-top);visibility:hidden;";
+      document.body.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      const badge = document.getElementById("debugBadge");
+      if (badge) {
+        badge.textContent =
+          "safe-bottom: " + cs.paddingBottom + "  safe-top: " + cs.paddingTop +
+          "\ninnerHeight: " + window.innerHeight + "  visualViewport: " + (window.visualViewport ? Math.round(window.visualViewport.height) : "n/a") +
+          "\nstandalone: " + (window.navigator.standalone === true) + "  dpr: " + window.devicePixelRatio;
+      }
+      probe.remove();
+    })();
   </script>
 </body>
 </html>
