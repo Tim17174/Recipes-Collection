@@ -1382,11 +1382,19 @@
       document.body.appendChild(probe);
       const cs = getComputedStyle(probe);
       const badge = document.getElementById("debugBadge");
+      const tabbar = document.querySelector(".tabbar");
+      const tbRect = tabbar ? tabbar.getBoundingClientRect() : null;
+      const tbPadBottom = tabbar ? getComputedStyle(tabbar).paddingBottom : "n/a";
+      const bodyRect = document.body.getBoundingClientRect();
       if (badge) {
         badge.textContent =
           "safe-bottom: " + cs.paddingBottom + "  safe-top: " + cs.paddingTop +
           "\ninnerHeight: " + window.innerHeight + "  visualViewport: " + (window.visualViewport ? Math.round(window.visualViewport.height) : "n/a") +
-          "\nstandalone: " + (window.navigator.standalone === true) + "  dpr: " + window.devicePixelRatio;
+          "\nstandalone: " + (window.navigator.standalone === true) + "  dpr: " + window.devicePixelRatio +
+          "\ntabbar.bottom: " + (tbRect ? Math.round(tbRect.bottom) : "n/a") +
+          "  gap-to-innerHeight: " + (tbRect ? Math.round(window.innerHeight - tbRect.bottom) : "n/a") +
+          "\ntabbar padBottom(css): " + tbPadBottom +
+          "\nbody.height: " + Math.round(bodyRect.height);
       }
       probe.remove();
     })();
