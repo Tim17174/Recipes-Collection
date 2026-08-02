@@ -3,7 +3,7 @@
   "short_name": "Rezepte",
   "start_url": "./index.html",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#f5f0e6",
   "theme_color": "#f5f0e6",
   "icons": [
