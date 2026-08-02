@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Rezept-Scanner</title>
 
   <link rel="manifest" href="manifest.json" />
@@ -103,7 +103,7 @@
     .tileAdd .label { font-size: 0.78rem; font-weight: 600; color: var(--text-2); }
 
     .inlineAdd { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
-    .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 0.9rem; color: var(--text); }
+    .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 1rem; color: var(--text); }
     .btnSmall { background: var(--accent); color: #fff; border: none; border-radius: 11px; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
     .btnSmallGhost { background: var(--chip-bg); color: var(--chip-text); border: none; border-radius: 11px; padding: 0.6rem 0.9rem; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
 
@@ -115,7 +115,7 @@
     .pillInactive { background: var(--card); color: var(--chip-text); }
 
     .searchBar { display: flex; align-items: center; gap: 0.5rem; background: var(--card); border-radius: 13px; padding: 0.6rem 0.85rem; margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-    .searchBar input { border: none; outline: none; font-size: 0.95rem; color: var(--text); flex: 1; background: transparent; }
+    .searchBar input { border: none; outline: none; font-size: 1rem; color: var(--text); flex: 1; background: transparent; }
 
     .chipRow { display: flex; gap: 0.5rem; overflow-x: auto; margin-top: 0.6rem; padding-bottom: 0.25rem; }
     .chipRow::-webkit-scrollbar { display: none; }
@@ -141,8 +141,9 @@
     .photoLabel { font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem; color: rgba(255,255,255,0.92); background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 5px; margin: 0.4rem; }
 
     .tabbar {
-      position: fixed; bottom: 0; left: 0; right: 0; height: calc(64px + env(safe-area-inset-bottom));
-      display: flex; justify-content: space-around; padding-top: 0.5rem; box-sizing: border-box;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 0.55rem 0 calc(0.55rem + env(safe-area-inset-bottom)); box-sizing: border-box;
       backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
       background: rgba(255,255,255,0.72); border-top: 0.5px solid rgba(0,0,0,0.08); z-index: 30;
     }
@@ -177,7 +178,7 @@
     .formScroll { flex: 1; overflow-y: auto; padding: 0.75rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
     .fieldLabel { font-size: 0.78rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1rem; }
     .fieldLabel:first-child { margin-top: 0; }
-    .textInput { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 0.95rem; margin-top: 0.5rem; color: var(--text); }
+    .textInput { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 1rem; margin-top: 0.5rem; color: var(--text); }
     .titleInput { font-size: 1.05rem; font-weight: 600; }
     textarea.textInput { min-height: 60px; resize: vertical; }
     .twoCol { display: flex; gap: 0.65rem; margin-top: 1rem; }
@@ -185,7 +186,7 @@
     .twoCol .fieldLabel { margin-top: 0; }
 
     .listRow { display: flex; align-items: center; gap: 0.5rem; }
-    .listRow input, .listRow textarea { flex: 1; border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.7rem; font-size: 0.92rem; color: var(--text); }
+    .listRow input, .listRow textarea { flex: 1; border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.7rem; font-size: 1rem; color: var(--text); }
     .removeBtn { width: 28px; height: 28px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--text-2); flex-shrink: 0; }
     .addDashed { margin-top: 0.55rem; text-align: center; border: 1.5px dashed var(--border-dashed); border-radius: 10px; padding: 0.6rem; font-size: 0.85rem; font-weight: 600; color: var(--text-2); background: none; width: 100%; }
     .stepNum { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 0.35rem; }
@@ -216,7 +217,7 @@
     .stepsList { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.7rem; }
     .stepItem { display: flex; gap: 0.7rem; }
     .stepText { font-size: 0.92rem; line-height: 1.45; padding-top: 0.05rem; }
-    .notesArea { width: 100%; box-sizing: border-box; margin-top: 0.55rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; font-size: 0.9rem; min-height: 60px; resize: vertical; color: var(--text); }
+    .notesArea { width: 100%; box-sizing: border-box; margin-top: 0.55rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; font-size: 1rem; min-height: 60px; resize: vertical; color: var(--text); }
     .deleteLink { text-align: center; margin-top: 1rem; color: var(--danger); font-size: 0.88rem; font-weight: 600; background: none; border: none; width: 100%; padding: 0.5rem; }
 
     .confirmBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
