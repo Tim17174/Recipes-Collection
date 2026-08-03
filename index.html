@@ -95,12 +95,6 @@
     .tile { border-radius: 17px; padding: 0.95rem; cursor: pointer; }
     .tile .name { font-size: 0.9rem; font-weight: 600; }
     .tile .count { font-size: 0.78rem; color: oklch(0.4 0.02 75); margin-top: 0.15rem; }
-    .tileAdd {
-      border: 1.5px dashed var(--border-dashed); border-radius: 17px; padding: 0.95rem;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; min-height: 46px;
-    }
-    .tileAdd .plus { font-size: 1.25rem; color: var(--accent); line-height: 1; }
-    .tileAdd .label { font-size: 0.78rem; font-weight: 600; color: var(--text-2); }
 
     .inlineAdd { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
     .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 1rem; color: var(--text); }
@@ -109,10 +103,14 @@
 
     .pageTitle { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.4px; margin: 0; }
     .pageCount { font-size: 0.85rem; color: var(--text-2); margin-top: 0.15rem; }
-    .headerBtns { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
+    .headerBtns { display: flex; gap: 0.5rem; margin-top: 0.25rem; position: relative; }
     .pill { padding: 0.45rem 0.85rem; border-radius: 100px; font-size: 0.78rem; font-weight: 600; border: none; }
     .pillActive { background: var(--accent); color: #fff; }
     .pillInactive { background: var(--card); color: var(--chip-text); }
+
+    .popover { position: absolute; background: var(--card); border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); padding: 6px; z-index: 20; max-height: 260px; overflow-y: auto; }
+    .popoverRow { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 9px; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .popoverRowActive { background: var(--accent-soft); color: var(--accent-text); }
 
     .searchBar { display: flex; align-items: center; gap: 0.5rem; background: var(--card); border-radius: 13px; padding: 0.6rem 0.85rem; margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
     .searchBar input { border: none; outline: none; font-size: 1rem; color: var(--text); flex: 1; background: transparent; }
@@ -131,14 +129,10 @@
     .recipeCard .title { font-size: 0.88rem; font-weight: 600; line-height: 1.25; }
     .recipeCard .meta { font-size: 0.72rem; color: var(--text-2); }
 
-    .sortRow { display: flex; align-items: center; gap: 0.65rem; background: var(--card); border-radius: 14px; padding: 0.6rem 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: grab; }
-    .sortRow .grip { flex-shrink: 0; opacity: 0.4; }
-    .sortRow .thumb { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; background-size: cover; background-position: center; }
-    .sortRow .title { flex: 1; font-size: 0.9rem; font-weight: 600; }
-
     .emptyHint { text-align: center; padding: 3rem 1rem; color: var(--text-3); font-size: 0.95rem; }
 
     .photoLabel { font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem; color: rgba(255,255,255,0.92); background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 5px; margin: 0.4rem; }
+    .photoBadge { position: absolute; top: 0.45rem; right: 0.45rem; font-size: 0.68rem; font-weight: 600; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.32); padding: 0.2rem 0.5rem; border-radius: 100px; white-space: nowrap; }
 
     .tabbar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -395,20 +389,23 @@
       draft: null,
       confirmDeleteOpen: false,
       cookMode: null,
-      sortMode: false,
-      dragId: null,
+      sortBy: "none",
+      sortDir: "asc",
+      sortMenuOpen: false,
       scaleServings: 1,
       search: "",
       categoryFilter: "Alle",
       notebookFilter: "all",
       tagFilter: "Alle",
       timeFilter: "Alle",
+      personFilter: "Alle",
       filterGroup: "category",
+      filterMenuOpen: false,
       recentOpen: true,
       favoritesOpen: true,
       collectionEditMode: false,
-      addingCategory: false, newCategoryName: "",
-      addingNotebook: false, newNotebookName: "",
+      newCategoryName: "",
+      newNotebookName: "",
       newTagValue: "",
       newPersonName: "",
       addChooserOpen: false,
@@ -449,8 +446,24 @@
         (state.notebookFilter === "all" || r.notebookId === state.notebookFilter) &&
         (state.tagFilter === "Alle" || (r.tags || []).includes(state.tagFilter)) &&
         (state.timeFilter === "Alle" || timeMatchesBucket(state.timeFilter, parseInt(r.time, 10) || 0)) &&
+        (state.personFilter === "Alle" || r.source === state.personFilter) &&
         r.title.toLowerCase().includes(searchLower)
       );
+    }
+
+    const SORT_LABELS = { name: "Name", added: "Zuletzt hinzugefügt", time: "Kochzeit" };
+
+    function sortRecipes(list) {
+      const sorted = [...list];
+      if (state.sortBy === "name") {
+        sorted.sort((a, b) => a.title.localeCompare(b.title, "de"));
+      } else if (state.sortBy === "added") {
+        sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      } else if (state.sortBy === "time") {
+        sorted.sort((a, b) => (parseInt(a.time, 10) || 0) - (parseInt(b.time, 10) || 0));
+      }
+      if (state.sortBy !== "none" && state.sortDir === "desc") sorted.reverse();
+      return sorted;
     }
     function getRecipe(id) { return data.recipes.find((r) => r.id === id); }
     function notebookName(id) { const n = data.notebooks.find((n) => n.id === id); return n ? n.name : null; }
@@ -504,10 +517,6 @@
       data.recipes.forEach((r) => { if (r.notebookId != null && nbCounts[r.notebookId] !== undefined) nbCounts[r.notebookId]++; });
 
       let html = `
-        <div class="row-between">
-          <div><div class="greet">Guten Tag</div></div>
-          <div class="avatar">👤</div>
-        </div>
         <div class="statGrid">
           <div class="statCard"><div class="num">${data.recipes.length}</div><div class="label">Rezepte</div></div>
           <div class="statCard"><div class="num">${data.notebooks.length}</div><div class="label">Kochbücher</div></div>
@@ -549,19 +558,10 @@
           <div class="name">${escapeHtml(name)}</div>
           <div class="count">${catCounts[name] || 0} Rezepte</div>
         </div>`).join("");
-      if (!state.addingCategory) {
-        html += `<div class="tileAdd" data-action="openAddCategory"><span class="plus">＋</span><span class="label">Neue Kategorie</span></div>`;
-      }
       html += `</div>`;
-      if (state.addingCategory) {
-        html += `<div class="inlineAdd">
-          <input id="newCategoryName" value="${escapeHtml(state.newCategoryName)}" placeholder="Name der Kategorie" data-bind="newCategoryName" />
-          <button class="btnSmall" data-action="addCategory">Hinzufügen</button>
-        </div>`;
-      }
 
       html += `
-        <div class="sectionTitle">Deine Kochbücher</div>
+        <div class="sectionTitle">Kochbücher</div>
         <div class="sectionSub">Eigene Übersammlungen für deine Gerichte</div>
         <div class="grid2">`;
       html += data.notebooks.map((n, i) => `
@@ -569,32 +569,29 @@
           <div class="name">${escapeHtml(n.name)}</div>
           <div class="count">${nbCounts[n.id] || 0} Rezepte</div>
         </div>`).join("");
-      if (!state.addingNotebook) {
-        html += `<div class="tileAdd" data-action="openAddNotebook"><span class="plus">＋</span><span class="label">Neues Kochbuch</span></div>`;
-      }
       html += `</div>`;
-      if (state.addingNotebook) {
-        html += `<div class="inlineAdd">
-          <input id="newNotebookName" value="${escapeHtml(state.newNotebookName)}" placeholder="Name des Kochbuchs" data-bind="newNotebookName" />
-          <button class="btnSmall" data-action="addNotebook">Hinzufügen</button>
-        </div>`;
-      }
 
       return html;
     }
 
     function recipeTile(r) {
+      const meta = [r.time, r.servings].filter(Boolean).map(escapeHtml).join(" · ");
       return `
         <div class="recipeTile" data-action="openRecipe" data-id="${r.id}">
-          <div class="photo photoPh" style="${photoStyle(r)}">${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}</div>
+          <div class="photo photoPh" style="${photoStyle(r)}">
+            ${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
+            ${meta ? `<span class="photoBadge">${meta}</span>` : ""}
+          </div>
           <div class="title">${escapeHtml(r.title)}</div>
-          <div class="meta">${escapeHtml(r.time || "")}${r.servings ? " · " + escapeHtml(r.servings) : ""}</div>
         </div>`;
     }
 
     // ---------- Collection ----------
     function renderCollection() {
-      const filtered = computeFiltered();
+      const filtered = sortRecipes(computeFiltered());
+      const sortLabel = SORT_LABELS[state.sortBy] || "Sortieren";
+      const sortOptions = ["name", "added", "time"].map((key) => ({ key, label: SORT_LABELS[key] }));
+
       let html = `
         <div class="row-between">
           <div>
@@ -603,7 +600,18 @@
           </div>
           <div class="headerBtns">
             <button class="pill ${state.collectionEditMode ? "pillActive" : "pillInactive"}" data-action="toggleCollectionEditMode">${state.collectionEditMode ? "Fertig" : "Bearbeiten"}</button>
-            <button class="pill ${state.sortMode ? "pillActive" : "pillInactive"}" data-action="toggleSortMode">${state.sortMode ? "Fertig" : "Sortieren"}</button>
+            <button class="pill ${state.sortBy !== "none" ? "pillActive" : "pillInactive"}" data-action="toggleSortMenu" style="display:flex;align-items:center;gap:0.3rem;">
+              <span>${escapeHtml(sortLabel)}</span>
+              <svg width="10" height="7" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            ${state.sortMenuOpen ? `
+              <div class="popover" style="top:2.5rem; right:0;" data-stop="1">
+                ${sortOptions.map((so) => `
+                  <div class="popoverRow ${state.sortBy === so.key ? "popoverRowActive" : ""}" data-action="selectSort" data-name="${so.key}">
+                    <span>${escapeHtml(so.label)}</span>
+                    ${state.sortBy === so.key ? `<span>${state.sortDir === "asc" ? "↑" : "↓"}</span>` : ""}
+                  </div>`).join("")}
+              </div>` : ""}
           </div>
         </div>
 
@@ -612,75 +620,84 @@
           <input id="searchInput" value="${escapeHtml(state.search)}" placeholder="Rezepte durchsuchen" data-bind-live="search" />
         </div>
 
-        <div class="chipRow">${["category", "notebook", "tag", "time"].map((key) => {
-          const labels = { category: "Kategorie", notebook: "Kochbuch", tag: "Tag", time: "Kochzeit" };
-          return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
-        }).join("")}</div>`;
+        <div style="position:relative;">
+          <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["category", "notebook", "tag", "time", "person"].map((key) => {
+            const labels = { category: "Kategorie", notebook: "Kochbuch", tag: "Tag", time: "Kochzeit", person: "Person" };
+            return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
+          }).join("")}</div>
+          ${state.filterMenuOpen ? renderFilterPopover() : ""}
+        </div>
 
-      if (state.filterGroup === "category") {
-        html += `<div class="chipRow">` + ["Alle", ...data.categories].map((name) =>
-          `<button class="chip ${name === state.categoryFilter ? "chipActive" : "chipInactive"}" data-action="setCategoryFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
-        ).join("") + `</div>`;
-        if (state.collectionEditMode) {
-          html += `<div class="inlineAdd">
-            <input id="newCategoryName2" value="${escapeHtml(state.newCategoryName)}" placeholder="Neue Kategorie" data-bind="newCategoryName" />
-            <button class="btnSmallGhost" data-action="addCategory">+ Kategorie</button>
-          </div>`;
-        }
-      } else if (state.filterGroup === "notebook") {
-        html += `<div class="chipRow">` + [{ id: "all", name: "Alle" }, ...data.notebooks].map((n) =>
-          `<button class="chip ${n.id === state.notebookFilter ? "chipActive" : "chipInactive"}" data-action="setNotebookFilter" data-id="${n.id}">${escapeHtml(n.name)}</button>`
-        ).join("") + `</div>`;
-        if (state.collectionEditMode) {
-          html += `<div class="inlineAdd">
-            <input id="newNotebookName2" value="${escapeHtml(state.newNotebookName)}" placeholder="Neues Kochbuch" data-bind="newNotebookName" />
-            <button class="btnSmallGhost" data-action="addNotebook">+ Kochbuch</button>
-          </div>`;
-        }
-      } else if (state.filterGroup === "tag") {
-        html += `<div class="chipRow">` + ["Alle", ...data.tags].map((name) =>
-          `<button class="chip ${name === state.tagFilter ? "chipActive" : "chipInactive"}" data-action="setTagFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
-        ).join("") + `</div>`;
-        if (state.collectionEditMode) {
-          html += `<div class="inlineAdd">
-            <input id="newTagValue" value="${escapeHtml(state.newTagValue)}" placeholder="Neuer Tag" data-bind="newTagValue" />
-            <button class="btnSmallGhost" data-action="addGlobalTag">+ Tag</button>
-          </div>`;
-        }
-      } else if (state.filterGroup === "time") {
-        html += `<div class="chipRow">` + TIME_BUCKETS.map((name) =>
-          `<button class="chip ${name === state.timeFilter ? "chipActive" : "chipInactive"}" data-action="setTimeFilter" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
-        ).join("") + `</div>`;
-      }
-
-      if (state.collectionEditMode) {
-        html += `<div class="fieldLabel">Personen</div>
+        ${state.collectionEditMode ? `
+          <div class="fieldLabel">Personen</div>
           <div class="chipRow" style="flex-wrap:wrap;overflow:visible;">${data.people.map((p) => `<span class="tagPill">${escapeHtml(p)}</span>`).join("")}</div>
           <div class="inlineAdd">
             <input id="newPersonName" value="${escapeHtml(state.newPersonName)}" placeholder="Neue Person" data-bind="newPersonName" />
             <button class="btnSmallGhost" data-action="addPerson">+ Person</button>
-          </div>`;
-      }
+          </div>` : ""}`;
 
       if (filtered.length === 0) {
         html += `<div class="noResults">Keine Rezepte gefunden.</div>`;
-      } else if (!state.sortMode) {
+      } else {
         html += `<div class="recipeGrid">` + filtered.map((r) => `
           <div class="recipeCard" data-action="openRecipe" data-id="${r.id}">
-            <div class="photo photoPh" style="${photoStyle(r)}">${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}</div>
-            <div class="title">${escapeHtml(r.title)}</div>
-            <div class="meta">${escapeHtml(r.time || "")}</div>
-          </div>`).join("") + `</div>`;
-      } else {
-        html += `<div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.1rem;">` + filtered.map((r) => `
-          <div class="sortRow" draggable="true" data-drag-id="${r.id}" style="opacity:${state.dragId === r.id ? 0.4 : 1};">
-            <svg class="grip" width="16" height="12" viewBox="0 0 16 12"><rect y="0" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/><rect y="5" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/><rect y="10" width="16" height="2" rx="1" fill="oklch(0.75 0.01 75)"/></svg>
-            <div class="thumb" style="${photoStyle(r)}"></div>
+            <div class="photo photoPh" style="${photoStyle(r)}">
+              ${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
+              ${r.time ? `<span class="photoBadge">${escapeHtml(r.time)}</span>` : ""}
+            </div>
             <div class="title">${escapeHtml(r.title)}</div>
           </div>`).join("") + `</div>`;
       }
 
       return html;
+    }
+
+    function renderFilterPopover() {
+      const group = state.filterGroup;
+      let rows = "";
+      let addForm = "";
+
+      if (group === "category") {
+        rows = ["Alle", ...data.categories].map((name) =>
+          `<div class="popoverRow ${name === state.categoryFilter ? "popoverRowActive" : ""}" data-action="setCategoryFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
+        ).join("");
+        if (state.collectionEditMode) {
+          addForm = `<div class="inlineAdd" style="margin:0.4rem;">
+            <input value="${escapeHtml(state.newCategoryName)}" placeholder="Neue Kategorie" data-bind="newCategoryName" />
+            <button class="btnSmallGhost" data-action="addCategory">+ Kategorie</button>
+          </div>`;
+        }
+      } else if (group === "notebook") {
+        rows = [{ id: "all", name: "Alle" }, ...data.notebooks].map((n) =>
+          `<div class="popoverRow ${n.id === state.notebookFilter ? "popoverRowActive" : ""}" data-action="setNotebookFilter" data-id="${n.id}"><span>${escapeHtml(n.name)}</span></div>`
+        ).join("");
+        if (state.collectionEditMode) {
+          addForm = `<div class="inlineAdd" style="margin:0.4rem;">
+            <input value="${escapeHtml(state.newNotebookName)}" placeholder="Neues Kochbuch" data-bind="newNotebookName" />
+            <button class="btnSmallGhost" data-action="addNotebook">+ Kochbuch</button>
+          </div>`;
+        }
+      } else if (group === "tag") {
+        rows = ["Alle", ...data.tags].map((name) =>
+          `<div class="popoverRow ${name === state.tagFilter ? "popoverRowActive" : ""}" data-action="setTagFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
+        ).join("");
+        if (state.collectionEditMode) {
+          addForm = `<div class="inlineAdd" style="margin:0.4rem;">
+            <input value="${escapeHtml(state.newTagValue)}" placeholder="Neuer Tag" data-bind="newTagValue" />
+            <button class="btnSmallGhost" data-action="addGlobalTag">+ Tag</button>
+          </div>`;
+        }
+      } else if (group === "time") {
+        rows = TIME_BUCKETS.map((name) =>
+          `<div class="popoverRow ${name === state.timeFilter ? "popoverRowActive" : ""}" data-action="setTimeFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
+        ).join("");
+      } else if (group === "person") {
+        rows = ["Alle", ...data.people].map((name) =>
+          `<div class="popoverRow ${name === state.personFilter ? "popoverRowActive" : ""}" data-action="setPersonFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
+        ).join("");
+      }
+
+      return `<div class="popover" style="top:2.9rem; left:0; right:0;" data-stop="1">${rows}${addForm}</div>`;
     }
 
     // ---------- Add chooser ----------
@@ -1018,37 +1035,6 @@
       app.querySelectorAll("[data-bind]").forEach((el) => {
         el.addEventListener("input", () => { state[el.dataset.bind] = el.value; });
       });
-
-      // sort mode drag & drop
-      if (state.sortMode) {
-        app.querySelectorAll("[data-drag-id]").forEach((el) => {
-          const id = el.dataset.dragId;
-          el.addEventListener("dragstart", () => { state.dragId = id; render(); });
-          el.addEventListener("dragover", (e) => e.preventDefault());
-          el.addEventListener("drop", (e) => {
-            e.preventDefault();
-            onDrop(id);
-          });
-        });
-      }
-    }
-
-    function onDrop(targetId) {
-      const dragId = state.dragId;
-      state.dragId = null;
-      if (dragId == null || dragId === targetId) { render(); return; }
-      const filtered = computeFiltered();
-      const ids = filtered.map((r) => r.id);
-      const from = ids.indexOf(dragId);
-      const to = ids.indexOf(targetId);
-      if (from === -1 || to === -1) { render(); return; }
-      ids.splice(from, 1);
-      ids.splice(to, 0, dragId);
-      const slotIndices = ids.map((id) => data.recipes.findIndex((r) => r.id === id)).sort((a, b) => a - b);
-      const byId = {}; data.recipes.forEach((r) => (byId[r.id] = r));
-      slotIndices.forEach((slotIdx, i) => { data.recipes[slotIdx] = byId[ids[i]]; });
-      saveRecipes();
-      render();
     }
 
     // ---------- Actions ----------
@@ -1059,30 +1045,34 @@
       toggleFavoritesOpen: () => { state.favoritesOpen = !state.favoritesOpen; render(); },
       selectCategoryHome: (el) => { state.categoryFilter = el.dataset.name; state.notebookFilter = "all"; state.filterGroup = "category"; state.tab = "collection"; render(); },
       selectNotebookHome: (el) => { state.notebookFilter = el.dataset.id; state.categoryFilter = "Alle"; state.filterGroup = "notebook"; state.tab = "collection"; render(); },
-      openAddCategory: () => { state.addingCategory = true; state.newCategoryName = ""; render(); },
       addCategory: () => {
         const name = state.newCategoryName.trim();
         if (!name) return;
         if (!data.categories.includes(name)) { data.categories.push(name); saveCategories(); }
-        state.addingCategory = false; state.newCategoryName = "";
+        state.newCategoryName = "";
         render();
       },
-      openAddNotebook: () => { state.addingNotebook = true; state.newNotebookName = ""; render(); },
       addNotebook: () => {
         const name = state.newNotebookName.trim();
         if (!name) return;
         data.notebooks.push({ id: uid(), name });
         saveNotebooks();
-        state.addingNotebook = false; state.newNotebookName = "";
+        state.newNotebookName = "";
         render();
       },
 
       toggleCollectionEditMode: () => { state.collectionEditMode = !state.collectionEditMode; render(); },
-      setFilterGroup: (el) => { state.filterGroup = el.dataset.name; render(); },
-      setCategoryFilter: (el) => { state.categoryFilter = el.dataset.name; render(); },
-      setNotebookFilter: (el) => { state.notebookFilter = el.dataset.id === "all" ? "all" : el.dataset.id; render(); },
-      setTagFilter: (el) => { state.tagFilter = el.dataset.name; render(); },
-      setTimeFilter: (el) => { state.timeFilter = el.dataset.name; render(); },
+      setFilterGroup: (el) => {
+        const name = el.dataset.name;
+        state.filterMenuOpen = state.filterGroup === name ? !state.filterMenuOpen : true;
+        state.filterGroup = name;
+        render();
+      },
+      setCategoryFilter: (el) => { state.categoryFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      setNotebookFilter: (el) => { state.notebookFilter = el.dataset.id === "all" ? "all" : el.dataset.id; state.filterMenuOpen = false; render(); },
+      setTagFilter: (el) => { state.tagFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      setTimeFilter: (el) => { state.timeFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      setPersonFilter: (el) => { state.personFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       addGlobalTag: () => {
         const v = state.newTagValue.trim();
         if (!v) return;
@@ -1097,7 +1087,14 @@
         state.newPersonName = "";
         render();
       },
-      toggleSortMode: () => { state.sortMode = !state.sortMode; render(); },
+      toggleSortMenu: () => { state.sortMenuOpen = !state.sortMenuOpen; render(); },
+      selectSort: (el) => {
+        const criterion = el.dataset.name;
+        state.sortDir = state.sortBy === criterion ? (state.sortDir === "asc" ? "desc" : "asc") : "asc";
+        state.sortBy = criterion;
+        state.sortMenuOpen = false;
+        render();
+      },
 
       openRecipe: (el) => {
         const id = el.dataset.id;
@@ -1214,7 +1211,7 @@
       saveManualAdd: () => {
         const d = state.manualDraft;
         const recipe = {
-          id: uid(), title: d.title.trim() || "Neues Rezept", category: d.category, notebookId: d.notebookId,
+          id: uid(), createdAt: Date.now(), title: d.title.trim() || "Neues Rezept", category: d.category, notebookId: d.notebookId,
           time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
           notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
@@ -1229,7 +1226,7 @@
       saveCapture: () => {
         const p = state.pendingRecipe;
         const recipe = {
-          id: uid(), title: p.title || "Ohne Titel", category: data.categories[0] || "", notebookId: null,
+          id: uid(), createdAt: Date.now(), title: p.title || "Ohne Titel", category: data.categories[0] || "", notebookId: null,
           time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
           photo: state.pendingThumb, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
