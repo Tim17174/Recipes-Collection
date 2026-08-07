@@ -18,13 +18,15 @@
       --text: oklch(0.22 0.01 75);
       --text-2: oklch(0.5 0.01 75);
       --text-3: oklch(0.65 0.01 75);
-      --accent: oklch(0.4 0.07 152);
-      --accent-soft: oklch(0.88 0.035 140);
-      --accent-text: oklch(0.32 0.06 152);
+      --accent: oklch(0.5 0.13 65);
+      --accent-soft: oklch(0.89 0.07 75);
+      --accent-text: oklch(0.35 0.13 65);
+      --accent-dot: oklch(0.55 0.13 70);
+      --highlight-soft: oklch(0.93 0.05 80);
       --chip-bg: oklch(0.94 0.01 75);
       --chip-text: oklch(0.4 0.01 75);
-      --badge-bg: oklch(0.91 0.045 42);
-      --badge-text: oklch(0.45 0.1 38);
+      --badge-bg: oklch(0.89 0.07 75);
+      --badge-text: oklch(0.42 0.13 65);
       --border: oklch(0.85 0.01 75);
       --border-dashed: oklch(0.78 0.01 75);
       --danger: oklch(0.55 0.15 35);
@@ -110,7 +112,7 @@
 
     .popover { position: absolute; background: var(--card); border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); padding: 6px; z-index: 20; max-height: 260px; overflow-y: auto; }
     .popoverRow { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 9px; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text); }
-    .popoverRowActive { background: var(--accent-soft); color: var(--accent-text); }
+    .popoverRowActive { background: var(--highlight-soft); color: var(--accent-text); }
 
     .searchBar { display: flex; align-items: center; gap: 0.5rem; background: var(--card); border-radius: 13px; padding: 0.6rem 0.85rem; margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
     .searchBar input { border: none; outline: none; font-size: 1rem; color: var(--text); flex: 1; background: transparent; }
@@ -149,7 +151,7 @@
       position: fixed; bottom: calc(46px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
       width: 60px; height: 60px; border-radius: 50%; background: var(--accent); border: none;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 6px 18px oklch(0.4 0.07 152 / 0.4); z-index: 40;
+      box-shadow: 0 6px 18px oklch(0.5 0.13 65 / 0.4); z-index: 40;
     }
 
     .overlay { position: fixed; inset: 0; z-index: 70; }
@@ -206,11 +208,17 @@
     .roundSmall { width: 27px; height: 27px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--chip-text); }
     .ingredientsList { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.7rem; }
     .ingredientRow { display: flex; align-items: center; gap: 0.6rem; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dot); flex-shrink: 0; }
     .stepsList { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.7rem; }
     .stepItem { display: flex; gap: 0.7rem; }
     .stepText { font-size: 0.92rem; line-height: 1.45; padding-top: 0.05rem; }
-    .notesArea { width: 100%; box-sizing: border-box; margin-top: 0.55rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; font-size: 1rem; min-height: 60px; resize: vertical; color: var(--text); }
+    .notesArea { width: 100%; box-sizing: border-box; margin-top: 0.55rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; font-size: 1rem; min-height: 60px; resize: none; overflow: hidden; color: var(--text); }
+
+    .statRow { display: flex; align-items: center; border: 1px solid var(--border); background: var(--card); border-radius: 14px; margin-top: 0.9rem; padding: 0.75rem 0; }
+    .statCol { flex: 1; text-align: center; }
+    .statValue { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .statLabel { font-size: 0.68rem; color: var(--text-2); margin-top: 0.15rem; }
+    .statDivider { width: 1px; height: 1.75rem; background: var(--border); }
     .deleteLink { text-align: center; margin-top: 1rem; color: var(--danger); font-size: 0.88rem; font-weight: 600; background: none; border: none; width: 100%; padding: 0.5rem; }
 
     .confirmBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
@@ -295,21 +303,21 @@
     }
 
     const COLOR_PAIRS = [
-      ["oklch(0.72 0.13 35)", "oklch(0.8 0.09 35)"],
-      ["oklch(0.75 0.1 140)", "oklch(0.83 0.07 140)"],
-      ["oklch(0.85 0.09 95)", "oklch(0.91 0.06 95)"],
-      ["oklch(0.7 0.13 55)", "oklch(0.78 0.09 55)"],
-      ["oklch(0.8 0.09 145)", "oklch(0.87 0.06 145)"],
-      ["oklch(0.68 0.14 30)", "oklch(0.76 0.1 30)"],
+      ["oklch(0.62 0.13 75)", "oklch(0.75 0.1 82)"],
+      ["oklch(0.65 0.12 78)", "oklch(0.78 0.09 85)"],
+      ["oklch(0.68 0.11 80)", "oklch(0.8 0.08 88)"],
+      ["oklch(0.6 0.13 72)", "oklch(0.73 0.1 80)"],
+      ["oklch(0.66 0.12 79)", "oklch(0.79 0.09 86)"],
+      ["oklch(0.63 0.13 76)", "oklch(0.76 0.1 84)"],
     ];
-    const TILE_BG = ["oklch(0.91 0.045 42)", "oklch(0.88 0.035 140)", "oklch(0.92 0.02 300)", "oklch(0.92 0.03 230)", "oklch(0.93 0.03 90)"];
+    const TILE_BG = ["oklch(0.89 0.07 75)", "oklch(0.91 0.06 82)", "oklch(0.93 0.05 88)", "oklch(0.87 0.08 70)", "oklch(0.9 0.06 65)"];
     const TIME_BUCKETS = ["Alle", "≤ 15 Min", "≤ 30 Min", "≤ 60 Min", "> 60 Min"];
 
     function photoStyle(recipe) {
       if (recipe.photo) return `background-image:url('${recipe.photo}');`;
       const idx = Math.abs(hashStr(recipe.id)) % COLOR_PAIRS.length;
       const [c1, c2] = COLOR_PAIRS[idx];
-      return `background-image:repeating-linear-gradient(135deg, ${c1} 0px, ${c1} 14px, ${c2} 14px, ${c2} 28px);`;
+      return `background-image:linear-gradient(135deg, ${c1}, ${c2});`;
     }
     function hashStr(str) {
       let h = 0;
@@ -792,9 +800,15 @@
       const factor = state.scaleServings / baseServings;
       const heroPhoto = r.dishPhoto || r.photo;
 
+      const servingsNumber = parseInt(r.servings, 10) || r.servings || "—";
+      const sourceLabel = r.source ? escapeHtml(r.source) : "—";
+
       let html = `<div class="fullSheet">
         <div class="detailHero photoPh" style="${heroPhoto ? `background-image:url('${heroPhoto}');` : photoStyle(r)}">
           <button class="heroBtn" style="left:1rem;" data-action="closeRecipe"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          ${!state.editMode
+            ? `<button class="heroBtn" style="right:4rem;" data-action="openEdit"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M11.5 1.5l3 3L5 14l-4 1 1-4z" fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg></button>`
+            : `<button class="heroBtn" style="right:4rem;" data-action="cancelEdit"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>`}
           <button class="heroBtn" style="right:1rem;" data-action="toggleFavorite">
             <svg width="18" height="16" viewBox="0 0 18 16"><path d="M9 15S1 10 1 4.8A3.8 3.8 0 019 3a3.8 3.8 0 018 1.8C17 10 9 15 9 15z" fill="${isFav ? "var(--heart)" : "none"}" stroke="${isFav ? "none" : "#000"}" stroke-width="1.6"/></svg>
           </button>
@@ -804,18 +818,20 @@
 
       if (!state.editMode) {
         html += `
-          <span class="badge">${escapeHtml(r.category || "Ohne Kategorie")}</span>
-          <div class="tagRow">${(r.tags || []).map((t) => `<span class="tagPill">${escapeHtml(t)}</span>`).join("")}</div>
-          <div class="detailTitle">${escapeHtml(r.title)}</div>
-          <div class="detailMeta">${escapeHtml(r.time || "")}${r.servings ? " · " + escapeHtml(r.servings) : ""}</div>
-          ${r.source ? `<div class="detailMeta">Von ${escapeHtml(r.source)}</div>` : ""}
-          <div class="actionRow">
-            <button class="actionBtn" data-action="openEdit"><svg width="13" height="13" viewBox="0 0 16 16"><path d="M11.5 1.5l3 3L5 14l-4 1 1-4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> Bearbeiten</button>
-            <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
-            <button class="actionBtn" data-action="shareImage"><svg width="12" height="14" viewBox="0 0 14 16"><path d="M7 1v9M3 4l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 9v5a1 1 0 001 1h10a1 1 0 001-1V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Teilen</button>
+          <div class="row-between" style="align-items:flex-start;">
+            <div class="detailTitle" style="margin-top:0;">${escapeHtml(r.title)}</div>
+            <button class="actionBtn" style="flex-shrink:0;" data-action="shareImage"><svg width="12" height="14" viewBox="0 0 14 16"><path d="M7 1v9M3 4l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 9v5a1 1 0 001 1h10a1 1 0 001-1V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Teilen</button>
           </div>
-          <div class="h3">Kochbuch</div>
-          <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Kein Kochbuch")}</span>
+          <span class="badge" style="margin-top:0.55rem;">${escapeHtml(r.category || "Ohne Kategorie")}</span>
+          <div class="tagRow">${(r.tags || []).map((t) => `<span class="tagPill">${escapeHtml(t)}</span>`).join("")}</div>
+
+          <div class="statRow">
+            <div class="statCol"><div class="statValue">${escapeHtml(r.time || "—")}</div><div class="statLabel">Kochzeit</div></div>
+            <div class="statDivider"></div>
+            <div class="statCol"><div class="statValue">${escapeHtml(String(servingsNumber))}</div><div class="statLabel">Portionen</div></div>
+            <div class="statDivider"></div>
+            <div class="statCol"><div class="statValue">${sourceLabel}</div><div class="statLabel">Von wem</div></div>
+          </div>
 
           <div class="row-between" style="margin-top:1.5rem;">
             <div class="h3" style="margin-top:0;">Zutaten</div>
@@ -834,6 +850,13 @@
 
           <div class="h3">Notizen</div>
           <textarea class="notesArea" placeholder="Eigene Anmerkungen" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
+
+          <div class="h3">Kochbuch</div>
+          <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Kein Kochbuch")}</span>
+
+          <div style="display:flex;justify-content:center;margin-top:1.4rem;">
+            <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
+          </div>
         `;
       } else {
         html += `
@@ -870,11 +893,6 @@
             </div>` : `
             <button class="addDashed" style="margin-top:0.5rem;padding:1.2rem;" data-action="startDishCapture">Foto hinzufügen</button>`}
 
-          <div class="h3">Kochbuch</div>
-          <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
-            `<button class="chip ${n.id === draft.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
-          ).join("")}</div>
-
           <div class="h3">Zutaten</div>
           <div class="ingredientsList">${draft.ingredients.map((val, i) => `
             <div class="listRow">
@@ -894,6 +912,11 @@
 
           <div class="h3">Notizen</div>
           <textarea class="notesArea" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
+
+          <div class="h3">Kochbuch</div>
+          <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
+            `<button class="chip ${n.id === draft.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
+          ).join("")}</div>
 
           <div class="formFooter" style="padding:1.4rem 0 0;">
             <button class="btnGhost" data-action="cancelEdit">Abbrechen</button>
@@ -1026,6 +1049,7 @@
           if (path === "__notes") {
             const r = getRecipe(state.selectedId);
             if (r) { r.notes = el.value; saveRecipes(); }
+            autoResizeTextarea(el);
             return;
           }
           setPath(state, path, el.value);
@@ -1035,6 +1059,14 @@
       app.querySelectorAll("[data-bind]").forEach((el) => {
         el.addEventListener("input", () => { state[el.dataset.bind] = el.value; });
       });
+
+      // notes textarea grows to fit its content instead of scrolling
+      app.querySelectorAll(".notesArea").forEach(autoResizeTextarea);
+    }
+
+    function autoResizeTextarea(el) {
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
     }
 
     // ---------- Actions ----------
@@ -1294,11 +1326,11 @@
         ctx.font = "600 22px -apple-system, system-ui, sans-serif";
         const catText = r.category || "Ohne Kategorie";
         const catW = ctx.measureText(catText).width + 32;
-        ctx.fillStyle = "#f5ded0";
+        ctx.fillStyle = "oklch(0.89 0.07 75)";
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(40, photoH + 26, catW, 46, 23); else ctx.rect(40, photoH + 26, catW, 46);
         ctx.fill();
-        ctx.fillStyle = "#7a4a20";
+        ctx.fillStyle = "oklch(0.42 0.13 65)";
         ctx.fillText(catText, 56, photoH + 57);
 
         let y = photoH + 130;
@@ -1319,7 +1351,7 @@
         ctx.font = "20px -apple-system, system-ui, sans-serif";
         (r.ingredients || []).forEach((ing) => {
           y += 36;
-          ctx.fillStyle = "#3a6b4a";
+          ctx.fillStyle = "oklch(0.55 0.13 70)";
           ctx.beginPath(); ctx.arc(46, y - 7, 4, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = "#3a3730";
           y = wrapText(ctx, ing, 62, y, W - 100, 28) - 28;
