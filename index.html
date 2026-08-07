@@ -314,7 +314,8 @@
     const TIME_BUCKETS = ["Alle", "≤ 15 Min", "≤ 30 Min", "≤ 60 Min", "> 60 Min"];
 
     function photoStyle(recipe) {
-      if (recipe.photo) return `background-image:url('${recipe.photo}');`;
+      const img = recipe.dishPhoto || recipe.photo;
+      if (img) return `background-image:url('${img}');`;
       const idx = Math.abs(hashStr(recipe.id)) % COLOR_PAIRS.length;
       const [c1, c2] = COLOR_PAIRS[idx];
       return `background-image:linear-gradient(135deg, ${c1}, ${c2});`;
@@ -488,7 +489,10 @@
 
       if (state.addChooserOpen) html += renderAddChooser();
       if (state.manualAddOpen) html += renderManualAdd();
-      if (state.selectedId != null) html += renderDetail();
+      // while a capture-flow screen is active (e.g. the post-scan dish-photo prompt),
+      // selectedId is set only so dish-photo actions know which recipe to attach to —
+      // the detail overlay itself must stay hidden underneath it.
+      if (state.selectedId != null && !state.captureStep) html += renderDetail();
       if (state.confirmDeleteOpen) html += renderDeleteConfirm();
       if (state.cookMode) html += renderCookMode();
       if (state.captureStep) html += renderCapture();
@@ -587,7 +591,7 @@
       return `
         <div class="recipeTile" data-action="openRecipe" data-id="${r.id}">
           <div class="photo photoPh" style="${photoStyle(r)}">
-            ${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
+            ${(r.dishPhoto || r.photo) ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
             ${meta ? `<span class="photoBadge">${meta}</span>` : ""}
           </div>
           <div class="title">${escapeHtml(r.title)}</div>
@@ -650,7 +654,7 @@
         html += `<div class="recipeGrid">` + filtered.map((r) => `
           <div class="recipeCard" data-action="openRecipe" data-id="${r.id}">
             <div class="photo photoPh" style="${photoStyle(r)}">
-              ${r.photo ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
+              ${(r.dishPhoto || r.photo) ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
               ${r.time ? `<span class="photoBadge">${escapeHtml(r.time)}</span>` : ""}
             </div>
             <div class="title">${escapeHtml(r.title)}</div>
@@ -987,6 +991,15 @@
             <button class="btnPrimary" style="flex:none;padding:0.7rem 1.4rem;" data-action="discardCapture">Schließen</button>
           </div>`;
       }
+      if (state.captureStep === "dishPrompt") {
+        return `
+          <div class="fullSheet" style="align-items:center;justify-content:center;text-align:center;padding:2rem;">
+            <div style="font-size:1.25rem;font-weight:700;color:var(--text);">Rezept gespeichert!</div>
+            <div style="font-size:0.9rem;color:var(--text-2);margin-top:0.6rem;max-width:260px;">Möchtest du direkt ein Foto vom fertigen Gericht machen? Das wird dann als Rezeptfoto verwendet.</div>
+            <button class="btnPrimary" style="flex:none;padding:0.85rem 1.8rem;margin-top:1.6rem;" data-action="startDishCapture">Foto aufnehmen</button>
+            <button class="chooserCancel" style="margin-top:0.3rem;" data-action="finishCaptureFlow">Überspringen</button>
+          </div>`;
+      }
       // result
       const p = state.pendingRecipe;
       return `
@@ -1258,14 +1271,23 @@
       saveCapture: () => {
         const p = state.pendingRecipe;
         const recipe = {
+          // The scanned page photo is only used to read the recipe off it — it is
+          // deliberately not stored as the recipe's photo. A dedicated photo of the
+          // finished dish is prompted for right after (see dishPrompt below).
           id: uid(), createdAt: Date.now(), title: p.title || "Ohne Titel", category: data.categories[0] || "", notebookId: null,
           time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
-          photo: state.pendingThumb, dishPhoto: null, tags: [],
+          photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
         };
         data.recipes.unshift(recipe);
         saveRecipes();
-        state.captureStep = null; state.pendingRecipe = null; state.pendingThumb = null; state.tab = "home";
+        state.pendingRecipe = null; state.pendingThumb = null;
+        state.selectedId = recipe.id;
+        state.captureStep = "dishPrompt";
+        render();
+      },
+      finishCaptureFlow: () => {
+        state.captureStep = null; state.selectedId = null; state.tab = "home";
         render();
       },
 
@@ -1310,6 +1332,11 @@
         r.dishPhoto = dataUrl;
         saveRecipes();
       } catch {}
+      if (state.captureStep === "dishPrompt") {
+        state.captureStep = null;
+        state.selectedId = null;
+        state.tab = "home";
+      }
       render();
     });
 
@@ -1380,7 +1407,8 @@
       ctx.fillStyle = "#f5f0e6";
       ctx.fillRect(0, 0, W, H);
 
-      if (r.photo) {
+      const shareImg = r.dishPhoto || r.photo;
+      if (shareImg) {
         const img = new Image();
         img.onload = () => {
           const scale = Math.max(W / img.width, photoH / img.height);
@@ -1389,7 +1417,7 @@
           drawRest();
         };
         img.onerror = drawRest;
-        img.src = r.photo;
+        img.src = shareImg;
       } else {
         const idx = Math.abs(hashStr(r.id)) % COLOR_PAIRS.length;
         const grad = ctx.createLinearGradient(0, 0, W, photoH);
