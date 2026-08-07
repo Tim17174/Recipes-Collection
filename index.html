@@ -94,7 +94,11 @@
     }
 
     .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 0.75rem; }
+    .tileScroll { display: flex; gap: 0.7rem; overflow-x: auto; margin-top: 0.75rem; padding-bottom: 0.3rem; }
+    .tileScroll::-webkit-scrollbar { display: none; }
+    .tileScroll .tile { flex: 0 0 158px; }
     .tile { border-radius: 17px; padding: 0.95rem; cursor: pointer; }
+    .homeHeading { text-align: center; font-size: 1.35rem; font-weight: 700; color: var(--text); margin-bottom: 0.9rem; }
     .tile .name { font-size: 0.9rem; font-weight: 600; }
     .tile .count { font-size: 0.78rem; color: oklch(0.4 0.02 75); margin-top: 0.15rem; }
 
@@ -430,8 +434,19 @@
     const dishInput = document.getElementById("dishInput");
 
     function render() {
+      const scrollSelectors = [".scroll", ".formScroll"];
+      const scrollPositions = scrollSelectors.map((sel) => {
+        const el = app.querySelector(sel);
+        return el ? el.scrollTop : null;
+      });
       app.innerHTML = renderApp();
       bindEvents();
+      scrollSelectors.forEach((sel, i) => {
+        if (scrollPositions[i] != null) {
+          const el = app.querySelector(sel);
+          if (el) el.scrollTop = scrollPositions[i];
+        }
+      });
     }
 
     function rerenderPreservingFocus(el) {
@@ -510,7 +525,7 @@
         <div style="width:70px;"></div>
         <button data-action="goCollection" class="${state.tab === "collection" ? "tabOn" : "tabOff"}">
           <svg width="21" height="22" viewBox="0 0 21 22"><path d="M2 2h17v18l-8.5-5L2 20V2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span class="tlabel">Sammlung</span>
+          <span class="tlabel">Bibliothek</span>
         </button>
       </nav>`;
     }
@@ -528,10 +543,11 @@
       data.notebooks.forEach((n) => (nbCounts[n.id] = 0));
       data.recipes.forEach((r) => { if (r.notebookId != null && nbCounts[r.notebookId] !== undefined) nbCounts[r.notebookId]++; });
 
-      let html = `
+      let html = `<div class="homeHeading">Rezepte</div>`;
+      html += `
         <div class="statGrid">
           <div class="statCard"><div class="num">${data.recipes.length}</div><div class="label">Rezepte</div></div>
-          <div class="statCard"><div class="num">${data.notebooks.length}</div><div class="label">Kochbücher</div></div>
+          <div class="statCard"><div class="num">${data.notebooks.length}</div><div class="label">Sammlungen</div></div>
         </div>`;
 
       if (data.recipes.length === 0) {
@@ -564,7 +580,7 @@
         }
       }
 
-      html += `<div class="sectionTitle">Kategorien</div><div class="grid2">`;
+      html += `<div class="sectionTitle">Kategorien</div><div class="tileScroll">`;
       html += data.categories.map((name, i) => `
         <div class="tile" style="background:${TILE_BG[i % TILE_BG.length]};" data-action="selectCategoryHome" data-name="${escapeHtml(name)}">
           <div class="name">${escapeHtml(name)}</div>
@@ -573,9 +589,9 @@
       html += `</div>`;
 
       html += `
-        <div class="sectionTitle">Kochbücher</div>
+        <div class="sectionTitle">Sammlungen</div>
         <div class="sectionSub">Eigene Übersammlungen für deine Gerichte</div>
-        <div class="grid2">`;
+        <div class="tileScroll">`;
       html += data.notebooks.map((n, i) => `
         <div class="tile" style="background:${TILE_BG[(i + 2) % TILE_BG.length]};" data-action="selectNotebookHome" data-id="${n.id}">
           <div class="name">${escapeHtml(n.name)}</div>
@@ -602,12 +618,12 @@
     function renderCollection() {
       const filtered = sortRecipes(computeFiltered());
       const sortLabel = SORT_LABELS[state.sortBy] || "Sortieren";
-      const sortOptions = ["name", "added", "time"].map((key) => ({ key, label: SORT_LABELS[key] }));
+      const sortOptions = [{ key: "none", label: "Standard" }, ...["name", "added", "time"].map((key) => ({ key, label: SORT_LABELS[key] }))];
 
       let html = `
         <div class="row-between">
           <div>
-            <div class="pageTitle">Sammlung</div>
+            <div class="pageTitle">Bibliothek</div>
             <div class="pageCount">${filtered.length} Rezepte</div>
           </div>
           <div class="headerBtns">
@@ -621,7 +637,7 @@
                 ${sortOptions.map((so) => `
                   <div class="popoverRow ${state.sortBy === so.key ? "popoverRowActive" : ""}" data-action="selectSort" data-name="${so.key}">
                     <span>${escapeHtml(so.label)}</span>
-                    ${state.sortBy === so.key ? `<span>${state.sortDir === "asc" ? "↑" : "↓"}</span>` : ""}
+                    ${(state.sortBy === so.key && so.key !== "none") ? `<span>${state.sortDir === "asc" ? "↑" : "↓"}</span>` : ""}
                   </div>`).join("")}
               </div>` : ""}
           </div>
@@ -634,19 +650,11 @@
 
         <div style="position:relative;">
           <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["category", "notebook", "tag", "time", "person"].map((key) => {
-            const labels = { category: "Kategorie", notebook: "Kochbuch", tag: "Tag", time: "Kochzeit", person: "Person" };
+            const labels = { category: "Kategorie", notebook: "Sammlung", tag: "Tag", time: "Kochzeit", person: "Person" };
             return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
           }).join("")}</div>
           ${state.filterMenuOpen ? renderFilterPopover() : ""}
-        </div>
-
-        ${state.collectionEditMode ? `
-          <div class="fieldLabel">Personen</div>
-          <div class="chipRow" style="flex-wrap:wrap;overflow:visible;">${data.people.map((p) => `<span class="tagPill">${escapeHtml(p)}</span>`).join("")}</div>
-          <div class="inlineAdd">
-            <input id="newPersonName" value="${escapeHtml(state.newPersonName)}" placeholder="Neue Person" data-bind="newPersonName" />
-            <button class="btnSmallGhost" data-action="addPerson">+ Person</button>
-          </div>` : ""}`;
+        </div>`;
 
       if (filtered.length === 0) {
         html += `<div class="noResults">Keine Rezepte gefunden.</div>`;
@@ -685,8 +693,8 @@
         ).join("");
         if (state.collectionEditMode) {
           addForm = `<div class="inlineAdd" style="margin:0.4rem;">
-            <input value="${escapeHtml(state.newNotebookName)}" placeholder="Neues Kochbuch" data-bind="newNotebookName" />
-            <button class="btnSmallGhost" data-action="addNotebook">+ Kochbuch</button>
+            <input value="${escapeHtml(state.newNotebookName)}" placeholder="Neue Sammlung" data-bind="newNotebookName" />
+            <button class="btnSmallGhost" data-action="addNotebook">+ Sammlung</button>
           </div>`;
         }
       } else if (group === "tag") {
@@ -707,6 +715,12 @@
         rows = ["Alle", ...data.people].map((name) =>
           `<div class="popoverRow ${name === state.personFilter ? "popoverRowActive" : ""}" data-action="setPersonFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
         ).join("");
+        if (state.collectionEditMode) {
+          addForm = `<div class="inlineAdd" style="margin:0.4rem;">
+            <input value="${escapeHtml(state.newPersonName)}" placeholder="Neue Person" data-bind="newPersonName" />
+            <button class="btnSmallGhost" data-action="addPerson">+ Person</button>
+          </div>`;
+        }
       }
 
       return `<div class="popover" style="top:2.9rem; left:0; right:0;" data-stop="1">${rows}${addForm}</div>`;
@@ -750,8 +764,8 @@
               `<button class="chip ${name === d.category ? "chipActive" : "chipInactiveAlt"}" data-action="setManualCategory" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`
             ).join("")}</div>
 
-            <div class="fieldLabel">Kochbuch</div>
-            <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
+            <div class="fieldLabel">Sammlung</div>
+            <div class="chipRow">${[{ id: null, name: "Keine Sammlung" }, ...data.notebooks].map((n) =>
               `<button class="chip ${n.id === d.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setManualNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
             ).join("")}</div>
 
@@ -855,8 +869,8 @@
           <div class="h3">Notizen</div>
           <textarea class="notesArea" placeholder="Eigene Anmerkungen" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
 
-          <div class="h3">Kochbuch</div>
-          <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Kein Kochbuch")}</span>
+          <div class="h3">Sammlung</div>
+          <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Keine Sammlung")}</span>
 
           <div style="display:flex;justify-content:center;margin-top:1.4rem;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
@@ -917,8 +931,8 @@
           <div class="h3">Notizen</div>
           <textarea class="notesArea" data-bind-live="__notes">${escapeHtml(r.notes || "")}</textarea>
 
-          <div class="h3">Kochbuch</div>
-          <div class="chipRow">${[{ id: null, name: "Kein Kochbuch" }, ...data.notebooks].map((n) =>
+          <div class="h3">Sammlung</div>
+          <div class="chipRow">${[{ id: null, name: "Keine Sammlung" }, ...data.notebooks].map((n) =>
             `<button class="chip ${n.id === draft.notebookId ? "chipActive" : "chipInactiveAlt"}" data-action="setDraftNotebook" data-id="${n.id ?? ""}">${escapeHtml(n.name)}</button>`
           ).join("")}</div>
 
@@ -1135,8 +1149,13 @@
       toggleSortMenu: () => { state.sortMenuOpen = !state.sortMenuOpen; render(); },
       selectSort: (el) => {
         const criterion = el.dataset.name;
-        state.sortDir = state.sortBy === criterion ? (state.sortDir === "asc" ? "desc" : "asc") : "asc";
-        state.sortBy = criterion;
+        if (criterion === "none") {
+          state.sortBy = "none";
+          state.sortDir = "asc";
+        } else {
+          state.sortDir = state.sortBy === criterion ? (state.sortDir === "asc" ? "desc" : "asc") : "asc";
+          state.sortBy = criterion;
+        }
         state.sortMenuOpen = false;
         render();
       },
