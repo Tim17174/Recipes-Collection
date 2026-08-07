@@ -1,4 +1,5 @@
 [build]
+  # Statische Seite ohne Build-Schritt; Funktionen lesen ANTHROPIC_API_KEY zur Laufzeit aus den Netlify-Umgebungsvariablen.
   publish = "."
 
 [functions]
