@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#f5f0e6" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     :root {
@@ -249,6 +250,11 @@
     .captureErr { color: oklch(0.75 0.13 30); }
 
     .noResults { text-align: center; padding: 3rem 1.25rem; color: var(--text-3); font-size: 0.92rem; }
+
+    .lockScreen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.9rem; padding: 2rem; }
+    .lockTitle { font-size: 1.2rem; font-weight: 700; }
+    .lockError { color: var(--danger); font-size: 0.85rem; }
+    .lockScreen input, .lockScreen button { width: 100%; max-width: 260px; flex: none; }
   </style>
 </head>
 <body>
@@ -257,45 +263,63 @@
   <input id="dishInput" type="file" accept="image/*" capture="environment" style="display:none" />
 
   <script>
-    // ---------- Storage ----------
-    const KEYS = {
-      recipes: "kochbuchRecipes",
-      categories: "kochbuchCategories",
-      notebooks: "kochbuchNotebooks",
-      tags: "kochbuchTags",
-      people: "kochbuchPeople",
-    };
+    // ---------- Storage (Supabase) ----------
+    const SUPABASE_URL = "https://pbiyuprbgnpukxwfuyqa.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_7U1L0MhYPmoAmFs_vovRtQ_VmP-VXe1";
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    function load(key, fallback) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
-      } catch {
-        return fallback;
-      }
+    const AUTH_KEY = "kochbuchAppPassword";
+    let appPassword = localStorage.getItem(AUTH_KEY) || "";
+
+    const data = { recipes: [], categories: [], notebooks: [], tags: [], people: [] };
+
+    function rowToRecipe(row) {
+      return {
+        id: row.id, createdAt: row.created_at, title: row.title, category: row.category,
+        notebookId: row.notebook_id, time: row.time, servings: row.servings, notes: row.notes,
+        source: row.source, favorite: row.favorite, photo: row.photo, dishPhoto: row.dish_photo,
+        tags: row.tags || [], ingredients: row.ingredients || [], steps: row.steps || [],
+      };
     }
 
-    function persist(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch (err) {
-        alert("Speichern nicht möglich — der lokale Speicher ist voll. Alte Rezeptfotos ggf. entfernen.");
-      }
+    async function loadAllData(pw) {
+      const { data: result, error } = await sb.rpc("load_all", { pw });
+      if (error) throw error;
+      return {
+        recipes: (result.recipes || []).map(rowToRecipe),
+        categories: result.categories || [],
+        notebooks: (result.notebooks || []).map((n) => ({ id: n.id, name: n.name })),
+        tags: result.tags || [],
+        people: result.people || [],
+      };
     }
 
-    const data = {
-      recipes: load(KEYS.recipes, []),
-      categories: load(KEYS.categories, ["Hauptgericht", "Beilage", "Dessert"]),
-      notebooks: load(KEYS.notebooks, []),
-      tags: load(KEYS.tags, []),
-      people: load(KEYS.people, []),
-    };
+    function remoteError(err) { alert("Verbindung zur Datenbank fehlgeschlagen: " + (err.message || err)); }
 
-    function saveRecipes() { persist(KEYS.recipes, data.recipes); }
-    function saveCategories() { persist(KEYS.categories, data.categories); }
-    function saveNotebooks() { persist(KEYS.notebooks, data.notebooks); }
-    function saveTags() { persist(KEYS.tags, data.tags); }
-    function savePeople() { persist(KEYS.people, data.people); }
+    async function saveRecipeRemote(recipe) {
+      const { error } = await sb.rpc("upsert_recipe", { pw: appPassword, r: recipe });
+      if (error) remoteError(error);
+    }
+    async function deleteRecipeRemote(id) {
+      const { error } = await sb.rpc("delete_recipe", { pw: appPassword, recipe_id: id });
+      if (error) remoteError(error);
+    }
+    async function addCategoryRemote(name) {
+      const { error } = await sb.rpc("add_category", { pw: appPassword, cat_name: name });
+      if (error) remoteError(error);
+    }
+    async function addNotebookRemote(id, name) {
+      const { error } = await sb.rpc("add_notebook", { pw: appPassword, nb_id: id, nb_name: name });
+      if (error) remoteError(error);
+    }
+    async function addTagRemote(name) {
+      const { error } = await sb.rpc("add_tag", { pw: appPassword, tag_name: name });
+      if (error) remoteError(error);
+    }
+    async function addPersonRemote(name) {
+      const { error } = await sb.rpc("add_person", { pw: appPassword, person_name: name });
+      if (error) remoteError(error);
+    }
 
     // ---------- Utilities ----------
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -432,6 +456,7 @@
     const app = document.getElementById("app");
     const scanInput = document.getElementById("scanInput");
     const dishInput = document.getElementById("dishInput");
+    let notesSaveTimer = null;
 
     function render() {
       const scrollSelectors = [".scroll", ".formScroll"];
@@ -1075,7 +1100,11 @@
           const path = el.dataset.bindLive;
           if (path === "__notes") {
             const r = getRecipe(state.selectedId);
-            if (r) { r.notes = el.value; saveRecipes(); }
+            if (r) {
+              r.notes = el.value;
+              clearTimeout(notesSaveTimer);
+              notesSaveTimer = setTimeout(() => saveRecipeRemote(r), 700);
+            }
             autoResizeTextarea(el);
             return;
           }
@@ -1107,15 +1136,16 @@
       addCategory: () => {
         const name = state.newCategoryName.trim();
         if (!name) return;
-        if (!data.categories.includes(name)) { data.categories.push(name); saveCategories(); }
+        if (!data.categories.includes(name)) { data.categories.push(name); addCategoryRemote(name); }
         state.newCategoryName = "";
         render();
       },
       addNotebook: () => {
         const name = state.newNotebookName.trim();
         if (!name) return;
-        data.notebooks.push({ id: uid(), name });
-        saveNotebooks();
+        const id = uid();
+        data.notebooks.push({ id, name });
+        addNotebookRemote(id, name);
         state.newNotebookName = "";
         render();
       },
@@ -1135,14 +1165,14 @@
       addGlobalTag: () => {
         const v = state.newTagValue.trim();
         if (!v) return;
-        if (!data.tags.includes(v)) { data.tags.push(v); saveTags(); }
+        if (!data.tags.includes(v)) { data.tags.push(v); addTagRemote(v); }
         state.newTagValue = "";
         render();
       },
       addPerson: () => {
         const v = state.newPersonName.trim();
         if (!v) return;
-        if (!data.people.includes(v)) { data.people.push(v); savePeople(); }
+        if (!data.people.includes(v)) { data.people.push(v); addPersonRemote(v); }
         state.newPersonName = "";
         render();
       },
@@ -1171,7 +1201,7 @@
       closeRecipe: () => { state.selectedId = null; state.editMode = false; state.draft = null; render(); },
       toggleFavorite: () => {
         const r = getRecipe(state.selectedId);
-        if (r) { r.favorite = !r.favorite; saveRecipes(); }
+        if (r) { r.favorite = !r.favorite; saveRecipeRemote(r); }
         render();
       },
       decScale: () => { state.scaleServings = Math.max(1, state.scaleServings - 1); render(); },
@@ -1211,7 +1241,7 @@
           tags: d.tags, ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
           time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
         });
-        saveRecipes();
+        saveRecipeRemote(r);
         state.editMode = false; state.draft = null;
         state.scaleServings = parseInt(r.servings, 10) || 1;
         render();
@@ -1220,8 +1250,9 @@
       openDeleteConfirm: () => { state.confirmDeleteOpen = true; render(); },
       cancelDeleteConfirm: () => { state.confirmDeleteOpen = false; render(); },
       confirmDelete: () => {
-        data.recipes = data.recipes.filter((r) => r.id !== state.selectedId);
-        saveRecipes();
+        const id = state.selectedId;
+        data.recipes = data.recipes.filter((r) => r.id !== id);
+        deleteRecipeRemote(id);
         state.confirmDeleteOpen = false; state.editMode = false; state.draft = null; state.selectedId = null;
         render();
       },
@@ -1281,7 +1312,7 @@
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
         };
         data.recipes.unshift(recipe);
-        saveRecipes();
+        saveRecipeRemote(recipe);
         state.manualAddOpen = false; state.manualDraft = null; state.tab = "home";
         render();
       },
@@ -1299,7 +1330,7 @@
           ingredients: p.ingredients || [], steps: p.instructions || [],
         };
         data.recipes.unshift(recipe);
-        saveRecipes();
+        saveRecipeRemote(recipe);
         state.pendingRecipe = null; state.pendingThumb = null;
         state.selectedId = recipe.id;
         state.captureStep = "dishPrompt";
@@ -1349,7 +1380,7 @@
       try {
         const { dataUrl } = await resizeImage(file, 640, 0.7);
         r.dishPhoto = dataUrl;
-        saveRecipes();
+        await saveRecipeRemote(r);
       } catch {}
       if (state.captureStep === "dishPrompt") {
         state.captureStep = null;
@@ -1447,7 +1478,49 @@
       }
     }
 
-    render();
+    // ---------- Auth / bootstrap ----------
+    function renderLoading() {
+      app.innerHTML = `<div class="lockScreen"><div class="spinner"></div></div>`;
+    }
+
+    function renderLock(errorMsg) {
+      app.innerHTML = `
+        <div class="lockScreen">
+          <div class="lockTitle">🔒 Rezept-Scanner</div>
+          <input id="lockInput" type="password" class="textInput" placeholder="Passwort" autocomplete="current-password" />
+          ${errorMsg ? `<div class="lockError">${escapeHtml(errorMsg)}</div>` : ""}
+          <button class="btnPrimary" id="lockBtn">Entsperren</button>
+        </div>`;
+      const input = document.getElementById("lockInput");
+      const btn = document.getElementById("lockBtn");
+      const submit = () => { const v = input.value.trim(); if (v) tryUnlock(v); };
+      btn.addEventListener("click", submit);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+      input.focus();
+    }
+
+    async function tryUnlock(pw) {
+      renderLoading();
+      try {
+        const loaded = await loadAllData(pw);
+        appPassword = pw;
+        localStorage.setItem(AUTH_KEY, pw);
+        Object.assign(data, loaded);
+        render();
+      } catch (err) {
+        const msg = /invalid password/i.test(err.message || "")
+          ? "Falsches Passwort."
+          : "Verbindung fehlgeschlagen. Prüfe deine Internetverbindung.";
+        renderLock(msg);
+      }
+    }
+
+    if (appPassword) {
+      renderLoading();
+      tryUnlock(appPassword);
+    } else {
+      renderLock();
+    }
   </script>
 </body>
 </html>
