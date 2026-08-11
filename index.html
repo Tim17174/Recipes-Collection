@@ -186,6 +186,8 @@
     .twoCol .fieldLabel { margin-top: 0; }
 
     .listRow { display: flex; align-items: center; gap: 0.5rem; }
+    .dragHandle { cursor: grab; color: var(--text-3); font-size: 1.1rem; line-height: 1; padding: 0 0.15rem; flex-shrink: 0; touch-action: none; user-select: none; }
+    .dragHandle:active { cursor: grabbing; }
     .listRow input, .listRow textarea { flex: 1; border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.7rem; font-size: 1rem; color: var(--text); }
     .removeBtn { width: 28px; height: 28px; border-radius: 50%; background: var(--chip-bg); border: none; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--text-2); flex-shrink: 0; }
     .addDashed { margin-top: 0.55rem; text-align: center; border: 1.5px dashed var(--border-dashed); border-radius: 10px; padding: 0.6rem; font-size: 0.85rem; font-weight: 600; color: var(--text-2); background: none; width: 100%; }
@@ -982,8 +984,9 @@
             <button class="addDashed" style="margin-top:0.5rem;padding:1.2rem;" data-action="startDishCapture">Foto hinzufügen</button>`}
 
           <div class="h3">Zutaten</div>
-          <div class="ingredientsList">${draft.ingredients.map((val, i) => `
-            <div class="listRow">
+          <div class="ingredientsList" id="draftIngredientsList">${draft.ingredients.map((val, i) => `
+            <div class="listRow" data-drag-index="${i}">
+              <span class="dragHandle">⠿</span>
               <input value="${escapeHtml(val)}" data-bind-live="draft.ingredients.${i}" />
               <button class="removeBtn" data-action="removeDraftIngredient" data-index="${i}">×</button>
             </div>`).join("")}</div>
@@ -1165,6 +1168,37 @@
 
       // notes textarea grows to fit its content instead of scrolling
       app.querySelectorAll(".notesArea").forEach(autoResizeTextarea);
+
+      // drag handles to reorder ingredients while editing a recipe
+      app.querySelectorAll("#draftIngredientsList .dragHandle").forEach((handle) => {
+        handle.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          let index = Number(handle.closest(".listRow").dataset.dragIndex);
+          const onMove = (ev) => {
+            const list = app.querySelector("#draftIngredientsList");
+            if (!list) return;
+            for (const row of list.querySelectorAll(".listRow")) {
+              const over = Number(row.dataset.dragIndex);
+              if (over === index) continue;
+              const rect = row.getBoundingClientRect();
+              if (ev.clientY > rect.top && ev.clientY < rect.bottom) {
+                const arr = state.draft.ingredients;
+                const [item] = arr.splice(index, 1);
+                arr.splice(over, 0, item);
+                index = over;
+                render();
+                break;
+              }
+            }
+          };
+          const onUp = () => {
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", onUp);
+          };
+          document.addEventListener("pointermove", onMove);
+          document.addEventListener("pointerup", onUp);
+        });
+      });
     }
 
     function autoResizeTextarea(el) {
