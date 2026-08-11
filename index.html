@@ -255,6 +255,50 @@
     .lockTitle { font-size: 1.2rem; font-weight: 700; }
     .lockError { color: var(--danger); font-size: 0.85rem; }
     .lockScreen input, .lockScreen button { width: 100%; max-width: 260px; flex: none; }
+
+    .fullSheetBackdrop { display: none; }
+
+    /* ---------- Desktop layout ---------- */
+    @media (min-width: 900px) {
+      .scroll {
+        padding-left: calc(232px + 2rem);
+        padding-right: 2rem;
+        padding-bottom: 2.5rem;
+        max-width: 1300px;
+      }
+
+      .tabbar {
+        top: 0; bottom: 0; left: 0; right: auto;
+        width: 232px;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 0.3rem;
+        padding: calc(1.6rem + env(safe-area-inset-top)) 1rem 1.5rem;
+        border-top: none;
+        border-right: 0.5px solid rgba(0,0,0,0.08);
+      }
+      .tabbar > div { display: none; }
+      .tabbar button {
+        width: 100%; flex-direction: row; justify-content: flex-start;
+        gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 12px;
+      }
+      .tabbar .tlabel { font-size: 0.92rem; }
+      .tabOn { background: var(--accent-soft); }
+
+      .fab { left: auto; right: 2.3rem; bottom: 2.3rem; transform: none; }
+
+      .recipeGrid { grid-template-columns: repeat(4, 1fr); }
+
+      .fullSheetBackdrop {
+        display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 59;
+      }
+      .fullSheet {
+        inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 92vw; max-width: 560px; max-height: 88vh;
+        border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      }
+    }
   </style>
 </head>
 <body>
@@ -774,6 +818,7 @@
     function renderManualAdd() {
       const d = state.manualDraft;
       return `
+        <div class="fullSheetBackdrop"></div>
         <div class="fullSheet">
           <div class="sheetHeader">
             <button class="roundBtn" data-action="cancelManualAdd"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -846,7 +891,7 @@
       const servingsNumber = parseInt(r.servings, 10) || r.servings || "—";
       const sourceLabel = r.source ? escapeHtml(r.source) : "—";
 
-      let html = `<div class="fullSheet">
+      let html = `<div class="fullSheetBackdrop"></div><div class="fullSheet">
         <div class="detailHero photoPh" style="${heroPhoto ? `background-image:url('${heroPhoto}');` : photoStyle(r)}">
           <button class="heroBtn" style="left:1rem;" data-action="closeRecipe"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
           ${!state.editMode
@@ -1032,6 +1077,7 @@
       }
       if (state.captureStep === "dishPrompt") {
         return `
+          <div class="fullSheetBackdrop"></div>
           <div class="fullSheet" style="align-items:center;justify-content:center;text-align:center;padding:2rem;">
             <div style="font-size:1.25rem;font-weight:700;color:var(--text);">Rezept gespeichert!</div>
             <div style="font-size:0.9rem;color:var(--text-2);margin-top:0.6rem;max-width:260px;">Möchtest du direkt ein Foto vom fertigen Gericht machen? Das wird dann als Rezeptfoto verwendet.</div>
@@ -1042,6 +1088,7 @@
       // result
       const p = state.pendingRecipe;
       return `
+        <div class="fullSheetBackdrop"></div>
         <div class="fullSheet">
           <div class="sheetHeader">
             <button class="roundBtn" data-action="discardCapture"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></button>
