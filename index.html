@@ -248,9 +248,9 @@
     .captureScreen { position: fixed; inset: 0; z-index: 60; background: #101110; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; }
 
     .cropScreen { position: fixed; inset: 0; z-index: 68; background: #101110; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.3rem; padding: 1.5rem; }
-    .cropFrame { width: 300px; height: 300px; max-width: 80vw; max-height: 80vw; border-radius: 20px; overflow: hidden; position: relative; touch-action: none; background: #000; }
+    .cropFrame { width: 280px; height: 210px; border-radius: 20px; overflow: hidden; position: relative; touch-action: none; background: #000; }
     .cropFrame img { position: absolute; top: 0; left: 0; transform-origin: top left; user-select: none; -webkit-user-drag: none; cursor: grab; }
-    .cropControls { display: flex; align-items: center; gap: 0.8rem; width: 300px; max-width: 80vw; }
+    .cropControls { display: flex; align-items: center; gap: 0.8rem; width: 280px; }
     .cropControls input[type="range"] { flex: 1; accent-color: var(--accent); }
     .cropFooter { display: flex; gap: 0.8rem; }
     .spinner { width: 60px; height: 60px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.18); border-top-color: oklch(0.6 0.1 150); animation: spin 0.9s linear infinite; }
@@ -1500,17 +1500,17 @@
       },
       confirmCrop: () => {
         const c = state.cropStep;
-        const OUT = 640;
+        const OUT_W = 640, OUT_H = 480;
         const canvas = document.createElement("canvas");
-        canvas.width = OUT; canvas.height = OUT;
+        canvas.width = OUT_W; canvas.height = OUT_H;
         const ctx = canvas.getContext("2d");
         const img = new Image();
         img.onload = () => {
           const scale = c.baseScale * c.zoom;
           const sx = -c.offsetX / scale;
           const sy = -c.offsetY / scale;
-          const sSize = c.frameSize / scale;
-          ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+          const sW = c.frameW / scale, sH = c.frameH / scale;
+          ctx.drawImage(img, sx, sy, sW, sH, 0, 0, OUT_W, OUT_H);
           finishDishPhoto(canvas.toDataURL("image/jpeg", 0.82));
         };
         img.src = c.fileUrl;
@@ -1551,14 +1551,14 @@
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        const frameSize = 300;
-        const baseScale = frameSize / Math.min(img.naturalWidth, img.naturalHeight);
+        const frameW = 280, frameH = 210;
+        const baseScale = Math.max(frameW / img.naturalWidth, frameH / img.naturalHeight);
         const w = img.naturalWidth * baseScale, h = img.naturalHeight * baseScale;
         state.cropStep = {
           fileUrl: url, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight,
-          baseScale, zoom: 1, frameSize,
-          offsetX: Math.min(0, (frameSize - w) / 2),
-          offsetY: Math.min(0, (frameSize - h) / 2),
+          baseScale, zoom: 1, frameW, frameH,
+          offsetX: Math.min(0, (frameW - w) / 2),
+          offsetY: Math.min(0, (frameH - h) / 2),
         };
         render();
       };
@@ -1569,8 +1569,8 @@
     function clampCropOffset(c) {
       const w = c.naturalWidth * c.baseScale * c.zoom;
       const h = c.naturalHeight * c.baseScale * c.zoom;
-      c.offsetX = Math.min(0, Math.max(c.frameSize - w, c.offsetX));
-      c.offsetY = Math.min(0, Math.max(c.frameSize - h, c.offsetY));
+      c.offsetX = Math.min(0, Math.max(c.frameW - w, c.offsetX));
+      c.offsetY = Math.min(0, Math.max(c.frameH - h, c.offsetY));
     }
 
     async function finishDishPhoto(dataUrl) {
