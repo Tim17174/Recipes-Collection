@@ -246,6 +246,13 @@
     .cookBtnNext { background: var(--accent); }
 
     .captureScreen { position: fixed; inset: 0; z-index: 60; background: #101110; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; }
+
+    .cropScreen { position: fixed; inset: 0; z-index: 68; background: #101110; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.3rem; padding: 1.5rem; }
+    .cropFrame { width: 300px; height: 300px; max-width: 80vw; max-height: 80vw; border-radius: 20px; overflow: hidden; position: relative; touch-action: none; background: #000; }
+    .cropFrame img { position: absolute; top: 0; left: 0; transform-origin: top left; user-select: none; -webkit-user-drag: none; cursor: grab; }
+    .cropControls { display: flex; align-items: center; gap: 0.8rem; width: 300px; max-width: 80vw; }
+    .cropControls input[type="range"] { flex: 1; accent-color: var(--accent); }
+    .cropFooter { display: flex; gap: 0.8rem; }
     .spinner { width: 60px; height: 60px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.18); border-top-color: oklch(0.6 0.1 150); animation: spin 0.9s linear infinite; }
     .captureText { font-size: 0.95rem; font-weight: 600; color: #fff; }
     .captureSub { font-size: 0.8rem; color: rgba(255,255,255,0.55); max-width: 260px; }
@@ -583,6 +590,7 @@
       if (state.confirmDeleteOpen) html += renderDeleteConfirm();
       if (state.cookMode) html += renderCookMode();
       if (state.captureStep) html += renderCapture();
+      if (state.cropStep) html += renderCrop();
 
       return html;
     }
@@ -1116,6 +1124,29 @@
         </div>`;
     }
 
+    // ---------- Photo crop ----------
+    function renderCrop() {
+      const c = state.cropStep;
+      const w = c.naturalWidth * c.baseScale * c.zoom;
+      const h = c.naturalHeight * c.baseScale * c.zoom;
+      return `
+        <div class="cropScreen">
+          <div class="captureText">Foto zuschneiden</div>
+          <div class="cropFrame" id="cropFrame">
+            <img src="${c.fileUrl}" draggable="false" style="width:${w}px;height:${h}px;transform:translate(${c.offsetX}px, ${c.offsetY}px);" />
+          </div>
+          <div class="cropControls">
+            <svg width="14" height="14" viewBox="0 0 16 16" style="flex-shrink:0;color:rgba(255,255,255,0.55);"><path d="M8 1v14M1 8h14" fill="none" stroke="currentColor" stroke-width="0" /><circle cx="8" cy="8" r="3" fill="currentColor" opacity="0.5"/></svg>
+            <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="${c.zoom}" />
+            <svg width="20" height="20" viewBox="0 0 16 16" style="flex-shrink:0;color:rgba(255,255,255,0.9);"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.5"/></svg>
+          </div>
+          <div class="cropFooter">
+            <button class="cookBtn" data-action="cancelCrop">Abbrechen</button>
+            <button class="cookBtn cookBtnNext" data-action="confirmCrop">Übernehmen</button>
+          </div>
+        </div>`;
+    }
+
     // ---------- Event binding ----------
     function getPath(obj, path) {
       return path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
@@ -1169,6 +1200,43 @@
 
       // notes textarea grows to fit its content instead of scrolling
       app.querySelectorAll(".notesArea").forEach(autoResizeTextarea);
+
+      // photo crop: drag to pan, slider to zoom (direct style mutation, no re-render, for smoothness)
+      const cropFrame = app.querySelector("#cropFrame");
+      if (cropFrame) {
+        const cropImg = cropFrame.querySelector("img");
+        cropFrame.addEventListener("pointerdown", (e) => {
+          const c = state.cropStep;
+          const startX = e.clientX, startY = e.clientY;
+          const startOffsetX = c.offsetX, startOffsetY = c.offsetY;
+          const onMove = (ev) => {
+            c.offsetX = startOffsetX + (ev.clientX - startX);
+            c.offsetY = startOffsetY + (ev.clientY - startY);
+            clampCropOffset(c);
+            cropImg.style.transform = `translate(${c.offsetX}px, ${c.offsetY}px)`;
+          };
+          const onUp = () => {
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", onUp);
+          };
+          document.addEventListener("pointermove", onMove);
+          document.addEventListener("pointerup", onUp);
+        });
+      }
+      const cropZoom = app.querySelector("#cropZoom");
+      if (cropZoom) {
+        cropZoom.addEventListener("input", () => {
+          const c = state.cropStep;
+          c.zoom = parseFloat(cropZoom.value);
+          clampCropOffset(c);
+          const w = c.naturalWidth * c.baseScale * c.zoom;
+          const h = c.naturalHeight * c.baseScale * c.zoom;
+          const img = app.querySelector("#cropFrame img");
+          img.style.width = w + "px";
+          img.style.height = h + "px";
+          img.style.transform = `translate(${c.offsetX}px, ${c.offsetY}px)`;
+        });
+      }
 
       // drag handles to reorder ingredients while editing a recipe
       app.querySelectorAll("#draftIngredientsList .dragHandle").forEach((handle) => {
@@ -1424,6 +1492,29 @@
       },
 
       shareImage: () => shareImage(),
+
+      cancelCrop: () => {
+        if (state.cropStep) URL.revokeObjectURL(state.cropStep.fileUrl);
+        state.cropStep = null;
+        render();
+      },
+      confirmCrop: () => {
+        const c = state.cropStep;
+        const OUT = 640;
+        const canvas = document.createElement("canvas");
+        canvas.width = OUT; canvas.height = OUT;
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.onload = () => {
+          const scale = c.baseScale * c.zoom;
+          const sx = -c.offsetX / scale;
+          const sy = -c.offsetY / scale;
+          const sSize = c.frameSize / scale;
+          ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+          finishDishPhoto(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = c.fileUrl;
+      },
     };
 
     // ---------- Real capture flow ----------
@@ -1454,23 +1545,49 @@
       render();
     });
 
-    dishInput.addEventListener("change", async (e) => {
+    dishInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const frameSize = 300;
+        const baseScale = frameSize / Math.min(img.naturalWidth, img.naturalHeight);
+        const w = img.naturalWidth * baseScale, h = img.naturalHeight * baseScale;
+        state.cropStep = {
+          fileUrl: url, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight,
+          baseScale, zoom: 1, frameSize,
+          offsetX: Math.min(0, (frameSize - w) / 2),
+          offsetY: Math.min(0, (frameSize - h) / 2),
+        };
+        render();
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); };
+      img.src = url;
+    });
+
+    function clampCropOffset(c) {
+      const w = c.naturalWidth * c.baseScale * c.zoom;
+      const h = c.naturalHeight * c.baseScale * c.zoom;
+      c.offsetX = Math.min(0, Math.max(c.frameSize - w, c.offsetX));
+      c.offsetY = Math.min(0, Math.max(c.frameSize - h, c.offsetY));
+    }
+
+    async function finishDishPhoto(dataUrl) {
+      if (state.cropStep) URL.revokeObjectURL(state.cropStep.fileUrl);
+      state.cropStep = null;
       const r = getRecipe(state.selectedId);
-      if (!r) return;
-      try {
-        const { dataUrl } = await resizeImage(file, 640, 0.7);
+      if (r) {
         r.dishPhoto = dataUrl;
         await saveRecipeRemote(r);
-      } catch {}
+      }
       if (state.captureStep === "dishPrompt") {
         state.captureStep = null;
         state.selectedId = null;
         state.tab = "home";
       }
       render();
-    });
+    }
 
     // ---------- Share as image ----------
     function shareImage() {
