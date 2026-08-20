@@ -332,6 +332,8 @@
         notebookId: row.notebook_id, time: row.time, servings: row.servings, notes: row.notes,
         source: row.source, favorite: row.favorite, photo: row.photo, dishPhoto: row.dish_photo,
         tags: row.tags || [], ingredients: row.ingredients || [], steps: row.steps || [],
+        healthScore: row.health_score, healthScoreReason: row.health_score_reason,
+        healthScoreExpanded: row.health_score_expanded || false,
       };
     }
 
@@ -502,8 +504,9 @@
       selectedId: null,
       editMode: false,
       draft: null,
-      confirmDeleteOpen: false,
+      pendingDeletion: null, // { type, id?, name?, label }
       cookMode: null,
+      healthScoreLoading: false,
       sortBy: "none",
       sortDir: "asc",
       sortMenuOpen: false,
@@ -612,7 +615,7 @@
       // selectedId is set only so dish-photo actions know which recipe to attach to —
       // the detail overlay itself must stay hidden underneath it.
       if (state.selectedId != null && !state.captureStep) html += renderDetail();
-      if (state.confirmDeleteOpen) html += renderDeleteConfirm();
+      if (state.pendingDeletion) html += renderDeleteConfirm();
       if (state.cookMode) html += renderCookMode();
       if (state.captureStep) html += renderCapture();
       if (state.cropStep) html += renderCrop();
@@ -829,15 +832,15 @@
 
       if (group === "category") {
         rows = ["Alle", ...data.categories].map((name) =>
-          popoverRow(name, null, name === state.categoryFilter, "setCategoryFilter", "deleteCategory", editMode && name !== "Alle")
+          popoverRow(name, null, name === state.categoryFilter, "setCategoryFilter", "requestDeleteCategory", editMode && name !== "Alle")
         ).join("");
       } else if (group === "notebook") {
         rows = [{ id: "all", name: "Alle" }, ...data.notebooks].map((n) =>
-          popoverRow(n.name, n.id, n.id === state.notebookFilter, "setNotebookFilter", "deleteNotebook", editMode && n.id !== "all")
+          popoverRow(n.name, n.id, n.id === state.notebookFilter, "setNotebookFilter", "requestDeleteNotebook", editMode && n.id !== "all")
         ).join("");
       } else if (group === "tag") {
         rows = ["Alle", ...data.tags].map((name) =>
-          popoverRow(name, null, name === state.tagFilter, "setTagFilter", "deleteTag", editMode && name !== "Alle")
+          popoverRow(name, null, name === state.tagFilter, "setTagFilter", "requestDeleteTag", editMode && name !== "Alle")
         ).join("");
       } else if (group === "time") {
         rows = TIME_BUCKETS.map((name) =>
@@ -845,7 +848,7 @@
         ).join("");
       } else if (group === "person") {
         rows = ["Alle", ...data.people].map((name) =>
-          popoverRow(name, null, name === state.personFilter, "setPersonFilter", "deletePerson", editMode && name !== "Alle")
+          popoverRow(name, null, name === state.personFilter, "setPersonFilter", "requestDeletePerson", editMode && name !== "Alle")
         ).join("");
       }
 
@@ -1002,6 +1005,19 @@
           <div style="display:flex;justify-content:center;margin-top:1.4rem;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
           </div>
+
+          ${r.healthScore == null ? `
+            <div style="display:flex;justify-content:center;margin-top:0.8rem;">
+              <button class="actionBtn" data-action="computeHealthScore" ${state.healthScoreLoading ? "disabled" : ""}>${state.healthScoreLoading ? "Wird berechnet …" : "Health Score"}</button>
+            </div>` : `
+            <div class="h3" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;" data-action="toggleHealthScore">
+              <span>Health Score: ${r.healthScore}/10</span>
+              <div class="chevron" style="transform:rotate(${r.healthScoreExpanded ? 180 : 0}deg);">
+                <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+            ${r.healthScoreExpanded ? `<div style="font-size:0.9rem;color:oklch(0.3 0.01 75);margin-top:0.5rem;">${escapeHtml(r.healthScoreReason || "")}</div>` : ""}
+          `}
         `;
       } else {
         html += `
@@ -1035,7 +1051,7 @@
           ${r.dishPhoto ? `
             <div class="photoPh" style="height:130px;border-radius:15px;margin-top:0.5rem;background-image:url('${r.dishPhoto}');display:flex;align-items:flex-start;justify-content:flex-end;gap:0.4rem;">
               <button class="btnSmallGhost" style="margin:0.5rem 0 0.5rem 0;background:rgba(255,255,255,0.85);" data-action="startDishCapture">Foto ändern</button>
-              <button class="btnSmallGhost" style="margin:0.5rem;background:rgba(255,255,255,0.85);color:var(--danger);" data-action="removeDishPhoto">Entfernen</button>
+              <button class="btnSmallGhost" style="margin:0.5rem;background:rgba(255,255,255,0.85);color:var(--danger);" data-action="requestDeletePhoto">Entfernen</button>
             </div>` : `
             <button class="addDashed" style="margin-top:0.5rem;padding:1.2rem;" data-action="startDishCapture">Foto hinzufügen</button>`}
 
@@ -1069,7 +1085,7 @@
             <button class="btnGhost" data-action="cancelEdit">Abbrechen</button>
             <button class="btnPrimary" data-action="saveEdit">Fertig</button>
           </div>
-          <button class="deleteLink" data-action="openDeleteConfirm">Rezept löschen</button>
+          <button class="deleteLink" data-action="requestDeleteRecipe">Rezept löschen</button>
         `;
       }
 
@@ -1079,14 +1095,15 @@
 
     // ---------- Delete confirm ----------
     function renderDeleteConfirm() {
+      const label = state.pendingDeletion ? state.pendingDeletion.label : "";
       return `
         <div class="confirmBackdrop">
           <div class="confirmBox">
-            <div class="confirmTitle">Rezept wirklich löschen?</div>
+            <div class="confirmTitle">${escapeHtml(label)} wirklich löschen?</div>
             <div class="confirmText">Dieser Schritt kann nicht rückgängig gemacht werden.</div>
             <div class="confirmRow">
-              <button class="btnGhost" data-action="cancelDeleteConfirm">Abbrechen</button>
-              <button class="btnDanger" data-action="confirmDelete">Löschen</button>
+              <button class="btnGhost" data-action="cancelPendingDeletion">Abbrechen</button>
+              <button class="btnDanger" data-action="confirmPendingDeletion">Löschen</button>
             </div>
           </div>
         </div>`;
@@ -1384,32 +1401,25 @@
       setTagFilter: (el) => { state.tagFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setTimeFilter: (el) => { state.timeFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setPersonFilter: (el) => { state.personFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
-      deleteCategory: (el) => {
+      requestDeleteCategory: (el) => {
         const name = el.dataset.name;
-        data.categories = data.categories.filter((c) => c !== name);
-        deleteCategoryRemote(name);
-        if (state.categoryFilter === name) state.categoryFilter = "Alle";
+        state.pendingDeletion = { type: "category", name, label: `Kategorie "${name}"` };
         render();
       },
-      deleteNotebook: (el) => {
+      requestDeleteNotebook: (el) => {
         const id = el.dataset.id;
-        data.notebooks = data.notebooks.filter((n) => n.id !== id);
-        deleteNotebookRemote(id);
-        if (state.notebookFilter === id) state.notebookFilter = "all";
+        const nb = data.notebooks.find((n) => n.id === id);
+        state.pendingDeletion = { type: "notebook", id, label: `Sammlung "${nb ? nb.name : ""}"` };
         render();
       },
-      deleteTag: (el) => {
+      requestDeleteTag: (el) => {
         const name = el.dataset.name;
-        data.tags = data.tags.filter((t) => t !== name);
-        deleteTagRemote(name);
-        if (state.tagFilter === name) state.tagFilter = "Alle";
+        state.pendingDeletion = { type: "tag", name, label: `Tag "${name}"` };
         render();
       },
-      deletePerson: (el) => {
+      requestDeletePerson: (el) => {
         const name = el.dataset.name;
-        data.people = data.people.filter((p) => p !== name);
-        deletePersonRemote(name);
-        if (state.personFilter === name) state.personFilter = "Alle";
+        state.pendingDeletion = { type: "person", name, label: `Person "${name}"` };
         render();
       },
       addGlobalTag: () => {
@@ -1497,13 +1507,38 @@
         render();
       },
 
-      openDeleteConfirm: () => { state.confirmDeleteOpen = true; render(); },
-      cancelDeleteConfirm: () => { state.confirmDeleteOpen = false; render(); },
-      confirmDelete: () => {
-        const id = state.selectedId;
-        data.recipes = data.recipes.filter((r) => r.id !== id);
-        deleteRecipeRemote(id);
-        state.confirmDeleteOpen = false; state.editMode = false; state.draft = null; state.selectedId = null;
+      requestDeleteRecipe: () => { state.pendingDeletion = { type: "recipe", label: "Rezept" }; render(); },
+      requestDeletePhoto: () => { state.pendingDeletion = { type: "photo", label: "Foto" }; render(); },
+      cancelPendingDeletion: () => { state.pendingDeletion = null; render(); },
+      confirmPendingDeletion: () => {
+        const d = state.pendingDeletion;
+        if (!d) return;
+        if (d.type === "recipe") {
+          const id = state.selectedId;
+          data.recipes = data.recipes.filter((r) => r.id !== id);
+          deleteRecipeRemote(id);
+          state.editMode = false; state.draft = null; state.selectedId = null;
+        } else if (d.type === "photo") {
+          const r = getRecipe(state.selectedId);
+          if (r) { r.dishPhoto = null; saveRecipeRemote(r); }
+        } else if (d.type === "category") {
+          data.categories = data.categories.filter((c) => c !== d.name);
+          deleteCategoryRemote(d.name);
+          if (state.categoryFilter === d.name) state.categoryFilter = "Alle";
+        } else if (d.type === "notebook") {
+          data.notebooks = data.notebooks.filter((n) => n.id !== d.id);
+          deleteNotebookRemote(d.id);
+          if (state.notebookFilter === d.id) state.notebookFilter = "all";
+        } else if (d.type === "tag") {
+          data.tags = data.tags.filter((t) => t !== d.name);
+          deleteTagRemote(d.name);
+          if (state.tagFilter === d.name) state.tagFilter = "Alle";
+        } else if (d.type === "person") {
+          data.people = data.people.filter((p) => p !== d.name);
+          deletePersonRemote(d.name);
+          if (state.personFilter === d.name) state.personFilter = "Alle";
+        }
+        state.pendingDeletion = null;
         render();
       },
 
@@ -1529,11 +1564,6 @@
       cookPrev: () => { state.cookMode.stepIndex = Math.max(0, state.cookMode.stepIndex - 1); render(); },
 
       startDishCapture: () => { dishInput.value = ""; dishInput.click(); },
-      removeDishPhoto: () => {
-        const r = getRecipe(state.selectedId);
-        if (r) { r.dishPhoto = null; saveRecipeRemote(r); }
-        render();
-      },
 
       openAddChooser: () => { state.addChooserOpen = true; render(); },
       closeAddChooser: () => { state.addChooserOpen = false; render(); },
@@ -1565,6 +1595,7 @@
           time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
           notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
+          healthScore: null, healthScoreReason: null, healthScoreExpanded: false,
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
@@ -1583,6 +1614,7 @@
           time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
           photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
+          healthScore: null, healthScoreReason: null, healthScoreExpanded: false,
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
@@ -1597,6 +1629,35 @@
       },
 
       shareImage: () => shareImage(),
+
+      computeHealthScore: async () => {
+        const r = getRecipe(state.selectedId);
+        if (!r || state.healthScoreLoading) return;
+        state.healthScoreLoading = true;
+        render();
+        try {
+          const res = await fetch("/.netlify/functions/health-score", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ title: r.title, ingredients: r.ingredients, steps: r.steps }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Unbekannter Fehler");
+          r.healthScore = json.score;
+          r.healthScoreReason = json.reason;
+          r.healthScoreExpanded = true;
+          await saveRecipeRemote(r);
+        } catch (err) {
+          alert("Health Score konnte nicht berechnet werden: " + err.message);
+        }
+        state.healthScoreLoading = false;
+        render();
+      },
+      toggleHealthScore: () => {
+        const r = getRecipe(state.selectedId);
+        if (r) { r.healthScoreExpanded = !r.healthScoreExpanded; saveRecipeRemote(r); }
+        render();
+      },
 
       cancelCrop: () => {
         if (state.cropStep) URL.revokeObjectURL(state.cropStep.fileUrl);
