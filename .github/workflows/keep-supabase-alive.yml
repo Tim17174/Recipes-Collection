@@ -1,0 +1,19 @@
+name: Keep Supabase Alive
+
+# Verhindert, dass das kostenlose Supabase-Projekt nach 7 Tagen Inaktivitaet
+# automatisch pausiert. Laeuft an jedem 1./7./13./19./25./31. Tag im Monat,
+# also nie mit mehr als 6 Tagen Abstand.
+on:
+  schedule:
+    - cron: "0 3 1,7,13,19,25,31 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase-Datenbank anpingen
+        run: |
+          curl -s -o /dev/null -w "HTTP-Status: %{http_code}\n" \
+            "https://pbiyuprbgnpukxwfuyqa.supabase.co/rest/v1/recipes?select=id&limit=1" \
+            -H "apikey: sb_publishable_7U1L0MhYPmoAmFs_vovRtQ_VmP-VXe1"
