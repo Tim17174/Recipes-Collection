@@ -140,6 +140,10 @@
 
     .photoLabel { font-family: ui-monospace, Menlo, monospace; font-size: 0.62rem; color: rgba(255,255,255,0.92); background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 5px; margin: 0.4rem; }
     .photoBadge { position: absolute; top: 0.45rem; right: 0.45rem; font-size: 0.68rem; font-weight: 600; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.32); padding: 0.2rem 0.5rem; border-radius: 100px; white-space: nowrap; }
+    .statusBadges { position: absolute; top: 0.45rem; left: 0.45rem; display: flex; gap: 0.3rem; z-index: 2; }
+    .statusBadge { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.25); flex-shrink: 0; }
+    .healthyBadge { background: #3f9a52; }
+    .cookedBadge { background: var(--accent); }
 
     .tabbar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -209,7 +213,6 @@
     .actionRow { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
     .actionBtn { display: flex; align-items: center; gap: 0.35rem; background: var(--chip-bg); border-radius: 100px; padding: 0.5rem 0.85rem; border: none; font-size: 0.8rem; font-weight: 600; color: oklch(0.35 0.01 75); }
     .actionBtn.cook { background: var(--accent-soft); color: var(--accent-text); }
-    .actionBtn.cooked { background: var(--accent-soft); color: var(--accent-text); }
 
     .h3 { font-size: 1.05rem; font-weight: 700; margin-top: 1.4rem; }
     .scaleRow { display: flex; align-items: center; gap: 0.55rem; }
@@ -669,6 +672,24 @@
     // ---------- Derived helpers ----------
     function isHealthy(r) { return r.healthScore != null && r.healthScore >= 7; }
 
+    function statusBadgesHtml(r) {
+      const healthy = isHealthy(r);
+      if (!healthy && !r.cooked) return "";
+      let html = `<div class="statusBadges">`;
+      if (healthy) {
+        html += `<span class="statusBadge healthyBadge" title="Gesund">
+          <svg width="12" height="12" viewBox="0 0 24 24"><path d="M4 20c0-9 7-16 16-16 0 9-7 16-16 16z" fill="#fff"/><path d="M4 20c4-4 8-8 16-16" stroke="#3f9a52" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>
+        </span>`;
+      }
+      if (r.cooked) {
+        html += `<span class="statusBadge cookedBadge" title="Bereits gekocht">
+          <svg width="12" height="12" viewBox="0 0 24 24"><ellipse cx="9" cy="7" rx="6" ry="5" fill="#fff"/><rect x="7.7" y="11" width="2.6" height="11" rx="1.3" fill="#fff"/></svg>
+        </span>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
     function computeFiltered() {
       const searchLower = state.search.toLowerCase();
       return data.recipes.filter((r) =>
@@ -823,6 +844,7 @@
       return `
         <div class="recipeTile" data-action="openRecipe" data-id="${r.id}">
           <div class="photo photoPh" style="${photoStyle(r)}">
+            ${statusBadgesHtml(r)}
             ${(r.dishPhoto || r.photo) ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
             ${meta ? `<span class="photoBadge">${meta}</span>` : ""}
           </div>
@@ -950,7 +972,7 @@
         </div>
 
         <div style="position:relative;">
-          <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["category", "notebook", "tag", "time", "person", "healthy", "cooked"].map((key) => {
+          <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["notebook", "category", "tag", "person", "time", "healthy", "cooked"].map((key) => {
             const labels = { category: "Kategorie", notebook: "Sammlung", tag: "Tag", time: "Kochzeit", person: "Person", healthy: "Gesundheit", cooked: "Gekocht" };
             return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
           }).join("")}</div>
@@ -963,6 +985,7 @@
         html += `<div class="recipeGrid">` + filtered.map((r) => `
           <div class="recipeCard" data-action="openRecipe" data-id="${r.id}">
             <div class="photo photoPh" style="${photoStyle(r)}">
+              ${statusBadgesHtml(r)}
               ${(r.dishPhoto || r.photo) ? "" : `<span class="photoLabel">Foto: ${escapeHtml(r.title)}</span>`}
               ${r.time ? `<span class="photoBadge">${escapeHtml(r.time)}</span>` : ""}
             </div>
@@ -1164,26 +1187,27 @@
           <div class="h3">Sammlung</div>
           <span class="tagPill" style="margin-top:0.5rem;display:inline-block;">${escapeHtml(notebookName(r.notebookId) || "Keine Sammlung")}</span>
 
+          <div class="statRow">
+            <div class="statCol" style="cursor:pointer;" data-action="healthScoreCellAction">
+              <div class="statValue">${state.healthScoreLoading ? "…" : (r.healthScore != null ? r.healthScore + "/10" : "–")}</div>
+              <div class="statLabel">Health Score</div>
+            </div>
+            <div class="statDivider"></div>
+            <div class="statCol">
+              <div class="statValue">${r.healthScore != null ? (isHealthy(r) ? "Ja" : "Nein") : "–"}</div>
+              <div class="statLabel">Gesund</div>
+            </div>
+            <div class="statDivider"></div>
+            <div class="statCol" style="cursor:pointer;" data-action="toggleCooked">
+              <div class="statValue">${r.cooked ? "Ja" : "Nein"}</div>
+              <div class="statLabel">Gekocht</div>
+            </div>
+          </div>
+          ${(r.healthScore != null && r.healthScoreExpanded) ? `<div style="font-size:0.85rem;color:oklch(0.3 0.01 75);margin-top:0.5rem;text-align:center;">${escapeHtml(r.healthScoreReason || "")}</div>` : ""}
+
           <div style="display:flex;justify-content:center;margin-top:1.4rem;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
           </div>
-
-          <div style="display:flex;justify-content:center;margin-top:0.8rem;">
-            <button class="actionBtn ${r.cooked ? "cooked" : ""}" data-action="toggleCooked">${r.cooked ? "✓ Bereits gekocht" : "Als gekocht markieren"}</button>
-          </div>
-
-          ${r.healthScore == null ? `
-            <div style="display:flex;justify-content:center;margin-top:0.8rem;">
-              <button class="actionBtn" data-action="computeHealthScore" ${state.healthScoreLoading ? "disabled" : ""}>${state.healthScoreLoading ? "Wird berechnet …" : "Health Score"}</button>
-            </div>` : `
-            <div class="h3" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;" data-action="toggleHealthScore">
-              <span>Health Score: ${r.healthScore}/10</span>
-              <div class="chevron" style="transform:rotate(${r.healthScoreExpanded ? 180 : 0}deg);">
-                <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="var(--text-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-            </div>
-            ${r.healthScoreExpanded ? `<div style="font-size:0.9rem;color:oklch(0.3 0.01 75);margin-top:0.5rem;">${escapeHtml(r.healthScoreReason || "")}</div>` : ""}
-          `}
         `;
       } else {
         html += `
@@ -1872,6 +1896,12 @@
         const r = getRecipe(state.selectedId);
         if (r) { r.healthScoreExpanded = !r.healthScoreExpanded; saveRecipeRemote(r); }
         render();
+      },
+      healthScoreCellAction: () => {
+        const r = getRecipe(state.selectedId);
+        if (!r) return;
+        if (r.healthScore == null) ACTIONS.computeHealthScore();
+        else ACTIONS.toggleHealthScore();
       },
 
       cancelCrop: () => {
