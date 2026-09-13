@@ -102,6 +102,7 @@
     .homeHeading { text-align: center; font-size: 1.35rem; font-weight: 700; color: var(--text); margin-bottom: 0.9rem; }
     .tile .name { font-size: 0.9rem; font-weight: 600; }
     .tile .count { font-size: 0.78rem; color: oklch(0.4 0.02 75); margin-top: 0.15rem; }
+    .tileAdd { display: flex; align-items: center; justify-content: center; text-align: center; border: 1.5px dashed var(--border-dashed); color: var(--text-2); font-size: 0.85rem; font-weight: 600; }
 
     .inlineAdd { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
     .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 1rem; color: var(--text); }
@@ -209,6 +210,7 @@
     .actionRow { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
     .actionBtn { display: flex; align-items: center; gap: 0.35rem; background: var(--chip-bg); border-radius: 100px; padding: 0.5rem 0.85rem; border: none; font-size: 0.8rem; font-weight: 600; color: oklch(0.35 0.01 75); }
     .actionBtn.cook { background: var(--accent-soft); color: var(--accent-text); }
+    .actionBtn.cooked { background: var(--accent-soft); color: var(--accent-text); }
 
     .h3 { font-size: 1.05rem; font-weight: 700; margin-top: 1.4rem; }
     .scaleRow { display: flex; align-items: center; gap: 0.55rem; }
@@ -334,6 +336,7 @@
         tags: row.tags || [], ingredients: row.ingredients || [], steps: row.steps || [],
         healthScore: row.health_score, healthScoreReason: row.health_score_reason,
         healthScoreExpanded: row.health_score_expanded || false,
+        cooked: row.cooked || false,
       };
     }
 
@@ -358,6 +361,10 @@
     }
     async function deleteRecipeRemote(id) {
       const { error } = await sb.rpc("delete_recipe", { pw: appPassword, recipe_id: id });
+      if (error) remoteError(error);
+    }
+    async function setCookedRemote(id, cooked) {
+      const { error } = await sb.rpc("set_recipe_cooked", { pw: appPassword, recipe_id: id, is_cooked: cooked });
       if (error) remoteError(error);
     }
     async function addCategoryRemote(name) {
@@ -517,11 +524,15 @@
       tagFilter: "Alle",
       timeFilter: "Alle",
       personFilter: "Alle",
+      healthyFilter: "Alle",
+      cookedFilter: "Alle",
       filterGroup: "category",
       filterMenuOpen: false,
       recentOpen: true,
       favoritesOpen: true,
       collectionEditMode: false,
+      homeAddCategoryOpen: false,
+      homeAddNotebookOpen: false,
       newCategoryName: "",
       newNotebookName: "",
       newTagValue: "",
@@ -570,6 +581,8 @@
     }
 
     // ---------- Derived helpers ----------
+    function isHealthy(r) { return r.healthScore != null && r.healthScore >= 7; }
+
     function computeFiltered() {
       const searchLower = state.search.toLowerCase();
       return data.recipes.filter((r) =>
@@ -578,6 +591,8 @@
         (state.tagFilter === "Alle" || (r.tags || []).includes(state.tagFilter)) &&
         (state.timeFilter === "Alle" || timeMatchesBucket(state.timeFilter, parseInt(r.time, 10) || 0)) &&
         (state.personFilter === "Alle" || r.source === state.personFilter) &&
+        (state.healthyFilter === "Alle" || (state.healthyFilter === "Gesund" ? isHealthy(r) : !isHealthy(r))) &&
+        (state.cookedFilter === "Alle" || (state.cookedFilter === "Gekocht" ? r.cooked : !r.cooked)) &&
         r.title.toLowerCase().includes(searchLower)
       );
     }
@@ -697,7 +712,14 @@
           <div class="name">${escapeHtml(name)}</div>
           <div class="count">${catCounts[name] || 0} Rezepte</div>
         </div>`).join("");
+      html += `<div class="tile tileAdd" data-action="toggleHomeAddCategory">+ Kategorie</div>`;
       html += `</div>`;
+      if (state.homeAddCategoryOpen) {
+        html += `<div class="inlineAdd" style="margin-top:0.7rem;">
+          <input value="${escapeHtml(state.newCategoryName)}" placeholder="Neue Kategorie" data-bind="newCategoryName" />
+          <button class="btnSmallGhost" data-action="addCategory">+ Kategorie</button>
+        </div>`;
+      }
 
       html += `
         <div class="sectionTitle">Sammlungen</div>
@@ -708,7 +730,14 @@
           <div class="name">${escapeHtml(n.name)}</div>
           <div class="count">${nbCounts[n.id] || 0} Rezepte</div>
         </div>`).join("");
+      html += `<div class="tile tileAdd" data-action="toggleHomeAddNotebook">+ Sammlung</div>`;
       html += `</div>`;
+      if (state.homeAddNotebookOpen) {
+        html += `<div class="inlineAdd" style="margin-top:0.7rem;">
+          <input value="${escapeHtml(state.newNotebookName)}" placeholder="Neue Sammlung" data-bind="newNotebookName" />
+          <button class="btnSmallGhost" data-action="addNotebook">+ Sammlung</button>
+        </div>`;
+      }
 
       return html;
     }
@@ -779,8 +808,8 @@
         </div>
 
         <div style="position:relative;">
-          <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["category", "notebook", "tag", "time", "person"].map((key) => {
-            const labels = { category: "Kategorie", notebook: "Sammlung", tag: "Tag", time: "Kochzeit", person: "Person" };
+          <div class="chipRow" style="flex-wrap:wrap;margin-top:1.1rem;">${["category", "notebook", "tag", "time", "person", "healthy", "cooked"].map((key) => {
+            const labels = { category: "Kategorie", notebook: "Sammlung", tag: "Tag", time: "Kochzeit", person: "Person", healthy: "Gesundheit", cooked: "Gekocht" };
             return `<button class="chip ${state.filterGroup === key ? "chipActive" : "chipInactive"}" data-action="setFilterGroup" data-name="${key}">${labels[key]}</button>`;
           }).join("")}</div>
           ${state.filterMenuOpen ? renderFilterPopover() : ""}
@@ -849,6 +878,14 @@
       } else if (group === "person") {
         rows = ["Alle", ...data.people].map((name) =>
           popoverRow(name, null, name === state.personFilter, "setPersonFilter", "requestDeletePerson", editMode && name !== "Alle")
+        ).join("");
+      } else if (group === "healthy") {
+        rows = ["Alle", "Gesund", "Ungesund"].map((name) =>
+          `<div class="popoverRow ${name === state.healthyFilter ? "popoverRowActive" : ""}" data-action="setHealthyFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
+        ).join("");
+      } else if (group === "cooked") {
+        rows = ["Alle", "Gekocht", "Nicht gekocht"].map((name) =>
+          `<div class="popoverRow ${name === state.cookedFilter ? "popoverRowActive" : ""}" data-action="setCookedFilter" data-name="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></div>`
         ).join("");
       }
 
@@ -1004,6 +1041,10 @@
 
           <div style="display:flex;justify-content:center;margin-top:1.4rem;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
+          </div>
+
+          <div style="display:flex;justify-content:center;margin-top:0.8rem;">
+            <button class="actionBtn ${r.cooked ? "cooked" : ""}" data-action="toggleCooked">${r.cooked ? "✓ Bereits gekocht" : "Als gekocht markieren"}</button>
           </div>
 
           ${r.healthScore == null ? `
@@ -1370,6 +1411,8 @@
       },
       toggleRecentOpen: () => { state.recentOpen = !state.recentOpen; render(); },
       toggleFavoritesOpen: () => { state.favoritesOpen = !state.favoritesOpen; render(); },
+      toggleHomeAddCategory: () => { state.homeAddCategoryOpen = !state.homeAddCategoryOpen; render(); },
+      toggleHomeAddNotebook: () => { state.homeAddNotebookOpen = !state.homeAddNotebookOpen; render(); },
       selectCategoryHome: (el) => { state.categoryFilter = el.dataset.name; state.notebookFilter = "all"; state.filterGroup = "category"; state.tab = "collection"; render(); },
       selectNotebookHome: (el) => { state.notebookFilter = el.dataset.id; state.categoryFilter = "Alle"; state.filterGroup = "notebook"; state.tab = "collection"; render(); },
       addCategory: () => {
@@ -1401,6 +1444,15 @@
       setTagFilter: (el) => { state.tagFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setTimeFilter: (el) => { state.timeFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setPersonFilter: (el) => { state.personFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      setHealthyFilter: (el) => { state.healthyFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      setCookedFilter: (el) => { state.cookedFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
+      toggleCooked: () => {
+        const r = getRecipe(state.selectedId);
+        if (!r) return;
+        r.cooked = !r.cooked;
+        setCookedRemote(r.id, r.cooked);
+        render();
+      },
       requestDeleteCategory: (el) => {
         const name = el.dataset.name;
         state.pendingDeletion = { type: "category", name, label: `Kategorie "${name}"` };
@@ -1595,7 +1647,7 @@
           time: (parseInt(d.timeMinutes, 10) || 1) + " Min", servings: (parseInt(d.servingsCount, 10) || 1) + " Portionen",
           notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
-          healthScore: null, healthScoreReason: null, healthScoreExpanded: false,
+          healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
@@ -1614,7 +1666,7 @@
           time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
           photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
-          healthScore: null, healthScoreReason: null, healthScoreExpanded: false,
+          healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
