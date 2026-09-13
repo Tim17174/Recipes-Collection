@@ -343,9 +343,11 @@
     }
 
     async function loadAllData(pw) {
-      const { data: result, error } = await sb.rpc("load_all", { pw });
+      const [{ data: result, error }, orders] = await Promise.all([
+        sb.rpc("load_all", { pw }),
+        loadListOrders(pw),
+      ]);
       if (error) throw error;
-      const orders = await loadListOrders(pw);
       const notebooksRaw = (result.notebooks || []).map((n) => ({ id: n.id, name: n.name }));
       return {
         recipes: (result.recipes || []).map(rowToRecipe),
@@ -441,45 +443,62 @@
       if (error) remoteError(error);
     }
 
+    // Renames a value shared by a list (categories/tags/people) and every recipe that
+    // references it. Waits for every affected recipe to be saved with the new value
+    // before deleting the old list entry remotely, so a slow/failed save can never
+    // race a delete into leaving a recipe pointing at a value that no longer exists.
+    async function renameListValue({ listName, filterKey, addRemote, deleteRemote, matchRecipe, applyRename }, oldName, newName) {
+      const merging = data[listName].includes(newName);
+      if (!merging) addRemote(newName);
+      data[listName] = merging
+        ? data[listName].filter((v) => v !== oldName)
+        : data[listName].map((v) => (v === oldName ? newName : v));
+      const affected = data.recipes.filter(matchRecipe);
+      affected.forEach(applyRename);
+      if (state[filterKey] === oldName) state[filterKey] = newName;
+      render();
+      await Promise.all(affected.map((r) => saveRecipeRemote(r)));
+      await deleteRemote(oldName);
+      persistOrder(listName);
+    }
+
     function renameCategoryValue(oldName, newName) {
       newName = newName.trim();
       if (!newName || newName === oldName) return;
-      const merging = data.categories.includes(newName);
-      if (!merging) addCategoryRemote(newName);
-      data.categories = merging ? data.categories.filter((c) => c !== oldName) : data.categories.map((c) => (c === oldName ? newName : c));
-      data.recipes.forEach((r) => { if (r.category === oldName) { r.category = newName; saveRecipeRemote(r); } });
-      deleteCategoryRemote(oldName);
-      if (state.categoryFilter === oldName) state.categoryFilter = newName;
-      persistOrder("categories");
+      return renameListValue({
+        listName: "categories",
+        filterKey: "categoryFilter",
+        addRemote: addCategoryRemote,
+        deleteRemote: deleteCategoryRemote,
+        matchRecipe: (r) => r.category === oldName,
+        applyRename: (r) => { r.category = newName; },
+      }, oldName, newName);
     }
 
     function renameTagValue(oldName, newName) {
       newName = newName.trim();
       if (!newName || newName === oldName) return;
-      const merging = data.tags.includes(newName);
-      if (!merging) addTagRemote(newName);
-      data.tags = merging ? data.tags.filter((t) => t !== oldName) : data.tags.map((t) => (t === oldName ? newName : t));
-      data.recipes.forEach((r) => {
-        if ((r.tags || []).includes(oldName)) {
-          r.tags = Array.from(new Set(r.tags.map((t) => (t === oldName ? newName : t))));
-          saveRecipeRemote(r);
-        }
-      });
-      deleteTagRemote(oldName);
-      if (state.tagFilter === oldName) state.tagFilter = newName;
-      persistOrder("tags");
+      return renameListValue({
+        listName: "tags",
+        filterKey: "tagFilter",
+        addRemote: addTagRemote,
+        deleteRemote: deleteTagRemote,
+        matchRecipe: (r) => (r.tags || []).includes(oldName),
+        applyRename: (r) => { r.tags = Array.from(new Set(r.tags.map((t) => (t === oldName ? newName : t)))); },
+      }, oldName, newName);
     }
 
     function renamePersonValue(oldName, newName) {
       newName = newName.trim();
       if (!newName || newName === oldName) return;
-      const merging = data.people.includes(newName);
-      if (!merging) addPersonRemote(newName);
-      data.people = merging ? data.people.filter((p) => p !== oldName) : data.people.map((p) => (p === oldName ? newName : p));
-      data.recipes.forEach((r) => { if (r.source === oldName) { r.source = newName; saveRecipeRemote(r); } });
-      deletePersonRemote(oldName);
-      if (state.personFilter === oldName) state.personFilter = newName;
-      persistOrder("people");
+      return renameListValue({
+        listName: "people",
+        filterKey: "personFilter",
+        addRemote: addPersonRemote,
+        deleteRemote: deletePersonRemote,
+        matchRecipe: (r) => r.source === oldName,
+        applyRename: (r) => { r.source = newName; },
+      }, oldName, newName);
     }
 
     function renameNotebookValue(id, newName) {
@@ -671,6 +690,13 @@
 
     // ---------- Derived helpers ----------
     function isHealthy(r) { return r.healthScore != null && r.healthScore >= 7; }
+    function isUnhealthy(r) { return r.healthScore != null && r.healthScore < 7; }
+
+    // Categories can be freely reordered for browsing (Verwalten tab), so the display
+    // order isn't a stable pick for new-recipe defaults — sort alphabetically instead.
+    function defaultCategory() {
+      return [...data.categories].sort((a, b) => a.localeCompare(b, "de"))[0] || "";
+    }
 
     function statusBadgesHtml(r) {
       const healthy = isHealthy(r);
@@ -698,7 +724,7 @@
         (state.tagFilter === "Alle" || (r.tags || []).includes(state.tagFilter)) &&
         (state.timeFilter === "Alle" || timeMatchesBucket(state.timeFilter, parseInt(r.time, 10) || 0)) &&
         (state.personFilter === "Alle" || r.source === state.personFilter) &&
-        (state.healthyFilter === "Alle" || (state.healthyFilter === "Gesund" ? isHealthy(r) : !isHealthy(r))) &&
+        (state.healthyFilter === "Alle" || (state.healthyFilter === "Gesund" ? isHealthy(r) : isUnhealthy(r))) &&
         (state.cookedFilter === "Alle" || (state.cookedFilter === "Gekocht" ? r.cooked : !r.cooked)) &&
         r.title.toLowerCase().includes(searchLower)
       );
@@ -872,7 +898,7 @@
     }
 
     // ---------- Manage ----------
-    function renderManageSection(listName, title, deleteAction) {
+    function renderManageSection(listName, title, deleteAction, addConfig) {
       const isNotebook = listName === "notebooks";
       const list = data[listName];
       let html = `<div class="sectionTitle">${title}</div>`;
@@ -884,7 +910,7 @@
           const key = isNotebook ? item.id : item;
           const label = isNotebook ? item.name : item;
           const isEditing = state.renaming && state.renaming.list === listName && state.renaming.key === key;
-          const idAttr = isNotebook ? `data-id="${key}"` : `data-name="${escapeHtml(key)}"`;
+          const idAttr = isNotebook ? `data-id="${escapeHtml(key)}"` : `data-name="${escapeHtml(key)}"`;
           if (isEditing) {
             return `
               <div class="listRow" data-drag-index="${i}">
@@ -904,6 +930,10 @@
         }).join("");
         html += `</div>`;
       }
+      html += `<div class="inlineAdd" style="margin-top:0.7rem;">
+        <input value="${escapeHtml(addConfig.value)}" placeholder="${addConfig.placeholder}" data-bind="${addConfig.bind}" />
+        <button class="btnSmallGhost" data-action="${addConfig.action}">+ Hinzufügen</button>
+      </div>`;
       return html;
     }
 
@@ -911,29 +941,14 @@
       let html = `<div class="homeHeading">Verwalten</div>`;
       html += `<div class="sectionSub" style="text-align:center;margin-top:-0.6rem;margin-bottom:0.4rem;">Kategorien, Sammlungen, Tags und Personen anlegen, umbenennen, löschen und per Ziehen am Griff neu sortieren</div>`;
 
-      html += renderManageSection("categories", "Kategorien", "requestDeleteCategory");
-      html += `<div class="inlineAdd" style="margin-top:0.7rem;">
-        <input value="${escapeHtml(state.newCategoryName)}" placeholder="Neue Kategorie" data-bind="newCategoryName" />
-        <button class="btnSmallGhost" data-action="addCategory">+ Hinzufügen</button>
-      </div>`;
-
-      html += renderManageSection("notebooks", "Sammlungen", "requestDeleteNotebook");
-      html += `<div class="inlineAdd" style="margin-top:0.7rem;">
-        <input value="${escapeHtml(state.newNotebookName)}" placeholder="Neue Sammlung" data-bind="newNotebookName" />
-        <button class="btnSmallGhost" data-action="addNotebook">+ Hinzufügen</button>
-      </div>`;
-
-      html += renderManageSection("tags", "Tags", "requestDeleteTag");
-      html += `<div class="inlineAdd" style="margin-top:0.7rem;">
-        <input value="${escapeHtml(state.newTagValue)}" placeholder="Neuer Tag" data-bind="newTagValue" />
-        <button class="btnSmallGhost" data-action="addGlobalTag">+ Hinzufügen</button>
-      </div>`;
-
-      html += renderManageSection("people", "Personen", "requestDeletePerson");
-      html += `<div class="inlineAdd" style="margin-top:0.7rem;">
-        <input value="${escapeHtml(state.newPersonName)}" placeholder="Neue Person" data-bind="newPersonName" />
-        <button class="btnSmallGhost" data-action="addPerson">+ Hinzufügen</button>
-      </div>`;
+      html += renderManageSection("categories", "Kategorien", "requestDeleteCategory",
+        { bind: "newCategoryName", placeholder: "Neue Kategorie", action: "addCategory", value: state.newCategoryName });
+      html += renderManageSection("notebooks", "Sammlungen", "requestDeleteNotebook",
+        { bind: "newNotebookName", placeholder: "Neue Sammlung", action: "addNotebook", value: state.newNotebookName });
+      html += renderManageSection("tags", "Tags", "requestDeleteTag",
+        { bind: "newTagValue", placeholder: "Neuer Tag", action: "addGlobalTag", value: state.newTagValue });
+      html += renderManageSection("people", "Personen", "requestDeletePerson",
+        { bind: "newPersonName", placeholder: "Neue Person", action: "addPerson", value: state.newPersonName });
 
       return html;
     }
@@ -996,10 +1011,9 @@
       return html;
     }
 
-    function popoverRow(name, id, active, selectAction, deleteAction, canDelete) {
+    function popoverRow(name, id, active, selectAction) {
       return `<div class="popoverRow ${active ? "popoverRowActive" : ""}">
         <span data-action="${selectAction}" ${id != null ? `data-id="${id}"` : `data-name="${escapeHtml(name)}"`} style="flex:1;cursor:pointer;">${escapeHtml(name)}</span>
-        ${canDelete ? `<button class="removeBtn" style="width:22px;height:22px;font-size:0.8rem;flex-shrink:0;" data-action="${deleteAction}" ${id != null ? `data-id="${id}"` : `data-name="${escapeHtml(name)}"`}>×</button>` : ""}
       </div>`;
     }
 
@@ -1009,15 +1023,15 @@
 
       if (group === "category") {
         rows = ["Alle", ...data.categories].map((name) =>
-          popoverRow(name, null, name === state.categoryFilter, "setCategoryFilter", null, false)
+          popoverRow(name, null, name === state.categoryFilter, "setCategoryFilter")
         ).join("");
       } else if (group === "notebook") {
         rows = [{ id: "all", name: "Alle" }, ...data.notebooks].map((n) =>
-          popoverRow(n.name, n.id, n.id === state.notebookFilter, "setNotebookFilter", null, false)
+          popoverRow(n.name, n.id, n.id === state.notebookFilter, "setNotebookFilter")
         ).join("");
       } else if (group === "tag") {
         rows = ["Alle", ...data.tags].map((name) =>
-          popoverRow(name, null, name === state.tagFilter, "setTagFilter", null, false)
+          popoverRow(name, null, name === state.tagFilter, "setTagFilter")
         ).join("");
       } else if (group === "time") {
         rows = TIME_BUCKETS.map((name) =>
@@ -1025,7 +1039,7 @@
         ).join("");
       } else if (group === "person") {
         rows = ["Alle", ...data.people].map((name) =>
-          popoverRow(name, null, name === state.personFilter, "setPersonFilter", null, false)
+          popoverRow(name, null, name === state.personFilter, "setPersonFilter")
         ).join("");
       } else if (group === "healthy") {
         rows = ["Alle", "Gesund", "Ungesund"].map((name) =>
@@ -1810,7 +1824,7 @@
       chooseManual: () => {
         state.addChooserOpen = false;
         state.manualAddOpen = true;
-        state.manualDraft = { title: "", category: data.categories[0] || "", notebookId: null, tags: [], source: "", timeMinutes: 30, servingsCount: 2, ingredients: [""], steps: [""] };
+        state.manualDraft = { title: "", category: defaultCategory(), notebookId: null, tags: [], source: "", timeMinutes: 30, servingsCount: 2, ingredients: [""], steps: [""] };
         render();
       },
       cancelManualAdd: () => { state.manualAddOpen = false; state.manualDraft = null; render(); },
@@ -1849,7 +1863,7 @@
           // The scanned page photo is only used to read the recipe off it — it is
           // deliberately not stored as the recipe's photo. A dedicated photo of the
           // finished dish is prompted for right after (see dishPrompt below).
-          id: uid(), createdAt: Date.now(), title: p.title || "Ohne Titel", category: data.categories[0] || "", notebookId: null,
+          id: uid(), createdAt: Date.now(), title: p.title || "Ohne Titel", category: defaultCategory(), notebookId: null,
           time: p.time || "", servings: p.servings || "", notes: "", source: "", favorite: false,
           photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
