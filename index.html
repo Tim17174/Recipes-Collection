@@ -339,6 +339,7 @@
         healthScore: row.health_score, healthScoreReason: row.health_score_reason,
         healthScoreExpanded: row.health_score_expanded || false,
         cooked: row.cooked || false,
+        stage: row.stage || "final",
       };
     }
 
@@ -404,6 +405,10 @@
     }
     async function setCookedRemote(id, cooked) {
       const { error } = await sb.rpc("set_recipe_cooked", { pw: appPassword, recipe_id: id, is_cooked: cooked });
+      if (error) remoteError(error);
+    }
+    async function setRecipeStageRemote(id, stage) {
+      const { error } = await sb.rpc("set_recipe_stage", { pw: appPassword, recipe_id: id, p_stage: stage });
       if (error) remoteError(error);
     }
     async function addCategoryRemote(name) {
@@ -635,6 +640,7 @@
       personFilter: "Alle",
       healthyFilter: "Alle",
       cookedFilter: "Alle",
+      libraryStage: "final",
       filterGroup: "category",
       filterMenuOpen: false,
       recentOpen: true,
@@ -724,6 +730,7 @@
     function computeFiltered() {
       const searchLower = state.search.toLowerCase();
       return data.recipes.filter((r) =>
+        r.stage === state.libraryStage &&
         (state.categoryFilter === "Alle" || r.category === state.categoryFilter) &&
         (state.notebookFilter === "all" || r.notebookId === state.notebookFilter) &&
         (state.tagFilter === "Alle" || (r.tags || []).includes(state.tagFilter)) &&
@@ -984,6 +991,11 @@
           </div>
         </div>
 
+        <div class="chipRow" style="margin-top:0.9rem;">
+          <button class="pill ${state.libraryStage === "final" ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="final">Final</button>
+          <button class="pill ${state.libraryStage === "gesammelt" ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="gesammelt">Gesammelt</button>
+        </div>
+
         <div class="searchBar">
           <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5.5" fill="none" stroke="var(--text-2)" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="var(--text-2)" stroke-width="1.6" stroke-linecap="round"/></svg>
           <input id="searchInput" value="${escapeHtml(state.search)}" placeholder="Rezepte durchsuchen" data-bind-live="search" />
@@ -1221,8 +1233,9 @@
           </div>
           ${(r.healthScore != null && r.healthScoreExpanded) ? `<div style="font-size:0.85rem;color:oklch(0.3 0.01 75);margin-top:0.5rem;text-align:center;">${escapeHtml(r.healthScoreReason || "")}</div>` : ""}
 
-          <div style="display:flex;justify-content:center;margin-top:1.4rem;">
+          <div style="display:flex;justify-content:center;gap:0.6rem;margin-top:1.4rem;flex-wrap:wrap;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
+            <button class="actionBtn" data-action="moveRecipeStage">${r.stage === "final" ? "↩ Zurück zu Gesammelt" : "✓ Als Final markieren"}</button>
           </div>
         `;
       } else {
@@ -1657,6 +1670,14 @@
         setCookedRemote(r.id, r.cooked);
         render();
       },
+      setLibraryStage: (el) => { state.libraryStage = el.dataset.name; render(); },
+      moveRecipeStage: () => {
+        const r = getRecipe(state.selectedId);
+        if (!r) return;
+        r.stage = r.stage === "final" ? "gesammelt" : "final";
+        setRecipeStageRemote(r.id, r.stage);
+        render();
+      },
       requestDeleteCategory: (el) => {
         const name = el.dataset.name;
         state.pendingDeletion = { type: "category", name, label: `Kategorie "${name}"` };
@@ -1856,9 +1877,11 @@
           notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
           healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
+          stage: "gesammelt",
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
+        setRecipeStageRemote(recipe.id, recipe.stage);
         state.manualAddOpen = false; state.manualDraft = null; state.tab = "home";
         render();
       },
@@ -1875,9 +1898,11 @@
           photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
           healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
+          stage: "gesammelt",
         };
         data.recipes.unshift(recipe);
         saveRecipeRemote(recipe);
+        setRecipeStageRemote(recipe.id, recipe.stage);
         state.pendingRecipe = null; state.pendingThumb = null;
         state.selectedId = recipe.id;
         state.captureStep = "dishPrompt";
