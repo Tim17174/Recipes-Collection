@@ -1869,7 +1869,7 @@
       removeManualIngredient: (el) => { state.manualDraft.ingredients.splice(Number(el.dataset.index), 1); render(); },
       addManualStep: () => { state.manualDraft.steps.push(""); render(); },
       removeManualStep: (el) => { state.manualDraft.steps.splice(Number(el.dataset.index), 1); render(); },
-      saveManualAdd: () => {
+      saveManualAdd: async () => {
         const d = state.manualDraft;
         const recipe = {
           id: uid(), createdAt: Date.now(), title: d.title.trim() || "Neues Rezept", category: d.category, notebookId: d.notebookId,
@@ -1880,14 +1880,17 @@
           stage: "gesammelt",
         };
         data.recipes.unshift(recipe);
-        saveRecipeRemote(recipe);
-        setRecipeStageRemote(recipe.id, recipe.stage);
         state.manualAddOpen = false; state.manualDraft = null; state.tab = "home";
         render();
+        // The stage-set call must wait for the insert to land, otherwise it can race
+        // ahead of it and silently update zero rows, leaving the recipe stuck at the
+        // column default ("final") instead of "gesammelt".
+        await saveRecipeRemote(recipe);
+        await setRecipeStageRemote(recipe.id, recipe.stage);
       },
 
       discardCapture: () => { state.captureStep = null; state.pendingRecipe = null; state.pendingThumb = null; render(); },
-      saveCapture: () => {
+      saveCapture: async () => {
         const p = state.pendingRecipe;
         const recipe = {
           // The scanned page photo is only used to read the recipe off it — it is
@@ -1901,12 +1904,13 @@
           stage: "gesammelt",
         };
         data.recipes.unshift(recipe);
-        saveRecipeRemote(recipe);
-        setRecipeStageRemote(recipe.id, recipe.stage);
         state.pendingRecipe = null; state.pendingThumb = null;
         state.selectedId = recipe.id;
         state.captureStep = "dishPrompt";
         render();
+        // Same ordering reason as saveManualAdd above.
+        await saveRecipeRemote(recipe);
+        await setRecipeStageRemote(recipe.id, recipe.stage);
       },
       finishCaptureFlow: () => {
         state.captureStep = null; state.selectedId = null; state.tab = "home";
@@ -2048,30 +2052,84 @@
 
     // ---------- Share as image ----------
     function layoutRecipeImage(ctx, r, W, photoH, draw) {
-      let y = photoH;
+      let y = photoH + 30;
+
       ctx.font = "600 22px -apple-system, system-ui, sans-serif";
       const catText = r.category || "Ohne Kategorie";
       const catW = ctx.measureText(catText).width + 32;
       if (draw) {
         ctx.fillStyle = "oklch(0.89 0.07 75)";
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(40, y + 26, catW, 46, 23); else ctx.rect(40, y + 26, catW, 46);
+        if (ctx.roundRect) ctx.roundRect(40, y, catW, 46, 23); else ctx.rect(40, y, catW, 46);
         ctx.fill();
         ctx.fillStyle = "oklch(0.42 0.13 65)";
-        ctx.fillText(catText, 56, y + 57);
+        ctx.fillText(catText, 56, y + 31);
       }
-      y += 130;
+      y += 46;
+
+      const tags = r.tags || [];
+      if (tags.length) {
+        y += 22;
+        ctx.font = "600 18px -apple-system, system-ui, sans-serif";
+        let x = 40;
+        const tagH = 34;
+        tags.forEach((tag) => {
+          const tw = ctx.measureText(tag).width + 28;
+          if (x > 40 && x + tw > W - 40) { x = 40; y += tagH + 10; }
+          if (draw) {
+            ctx.fillStyle = "oklch(0.94 0.01 75)";
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x, y, tw, tagH, 17); else ctx.rect(x, y, tw, tagH);
+            ctx.fill();
+            ctx.fillStyle = "oklch(0.4 0.01 75)";
+            ctx.fillText(tag, x + 14, y + 23);
+          }
+          x += tw + 10;
+        });
+        y += tagH;
+      }
+      y += 36;
 
       ctx.fillStyle = "#2b2822";
       ctx.font = "700 42px -apple-system, system-ui, sans-serif";
       y = wrapText(ctx, r.title, 40, y, W - 80, 50, draw);
 
-      y += 6;
-      ctx.font = "20px -apple-system, system-ui, sans-serif";
-      ctx.fillStyle = "#807a6e";
-      const metaText = [r.time, r.servings, r.source].filter(Boolean).join("   ·   ");
-      if (draw) ctx.fillText(metaText, 40, y);
-      y += 50;
+      y += 34;
+      const servingsNumber = parseInt(r.servings, 10) || r.servings || "—";
+      const stats = [
+        { value: r.time || "—", label: "Kochzeit" },
+        { value: String(servingsNumber), label: "Portionen" },
+        { value: r.source || "—", label: "Von wem" },
+      ];
+      const boxH = 112;
+      if (draw) {
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "oklch(0.85 0.01 75)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(40, y, W - 80, boxH, 20); else ctx.rect(40, y, W - 80, boxH);
+        ctx.fill();
+        ctx.stroke();
+        const colW = (W - 80) / 3;
+        stats.forEach((s, i) => {
+          const cx = 40 + colW * i + colW / 2;
+          ctx.textAlign = "center";
+          ctx.font = "700 24px -apple-system, system-ui, sans-serif";
+          ctx.fillStyle = "#2b2822";
+          ctx.fillText(s.value, cx, y + 50);
+          ctx.font = "18px -apple-system, system-ui, sans-serif";
+          ctx.fillStyle = "oklch(0.4 0.01 75)";
+          ctx.fillText(s.label, cx, y + 80);
+          ctx.textAlign = "left";
+          if (i > 0) {
+            ctx.beginPath();
+            ctx.moveTo(40 + colW * i, y + 28);
+            ctx.lineTo(40 + colW * i, y + boxH - 28);
+            ctx.stroke();
+          }
+        });
+      }
+      y += boxH + 46;
 
       ctx.font = "700 26px -apple-system, system-ui, sans-serif";
       ctx.fillStyle = "#2b2822";
@@ -2128,7 +2186,7 @@
       const r = getRecipe(state.selectedId);
       if (!r) return;
       const W = 800;
-      const photoH = 380;
+      const photoH = Math.round(W * 230 / 390); // matches the phone's .detailHero aspect ratio (230px at ~390px width)
 
       const measureCanvas = document.createElement("canvas");
       const mctx = measureCanvas.getContext("2d");
