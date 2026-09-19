@@ -641,6 +641,8 @@
       healthyFilter: "Alle",
       cookedFilter: "Alle",
       libraryStage: "final",
+      exportingAll: false,
+      exportProgress: null,
       filterGroup: "category",
       filterMenuOpen: false,
       recentOpen: true,
@@ -959,6 +961,15 @@
         { bind: "newTagValue", placeholder: "Neuer Tag", action: "addGlobalTag", value: state.newTagValue });
       html += renderManageSection("people", "Personen", "requestDeletePerson",
         { bind: "newPersonName", placeholder: "Neue Person", action: "addPerson", value: state.newPersonName });
+
+      html += `<div class="sectionTitle">Export</div>`;
+      html += `<div class="sectionSub">Lädt jedes Rezept als Bild (wie beim Teilen) plus Originalfoto, alles gepackt als ZIP-Datei</div>`;
+      if (state.exportingAll) {
+        const p = state.exportProgress;
+        html += `<div class="actionBtn" style="margin-top:0.7rem;justify-content:center;">Exportiere … ${p ? `${p.done}/${p.total}` : ""}</div>`;
+      } else {
+        html += `<button class="btnSmallGhost" style="margin-top:0.7rem;" data-action="exportAllRecipes">Alle Rezepte exportieren</button>`;
+      }
 
       return html;
     }
@@ -1918,6 +1929,7 @@
       },
 
       shareImage: () => shareImage(),
+      exportAllRecipes: () => exportAllRecipesZip(),
 
       computeHealthScore: async () => {
         const r = getRecipe(state.selectedId);
@@ -2181,75 +2193,153 @@
       return y + 40;
     }
 
-    function shareImage() {
+    // Renders a recipe to a PNG blob, exactly like the on-screen "Teilen" share
+    // image. Shared by shareImage() (single recipe) and exportAllRecipesZip()
+    // (bulk export), so both stay pixel-identical.
+    function renderRecipeImageBlob(r) {
+      return new Promise((resolve) => {
+        const W = 800;
+        const photoH = Math.round(W * 230 / 390); // matches the phone's .detailHero aspect ratio (230px at ~390px width)
+
+        const measureCanvas = document.createElement("canvas");
+        const mctx = measureCanvas.getContext("2d");
+        const totalH = Math.ceil(layoutRecipeImage(mctx, r, W, photoH, false));
+
+        // Mobile Safari silently truncates canvases past a certain pixel size — long
+        // recipes (many steps/long notes) could exceed that. Scale the whole image
+        // down proportionally rather than let the bottom (notes) get cut off.
+        const MAX_H = 4000;
+        const scale = totalH > MAX_H ? MAX_H / totalH : 1;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(W * scale);
+        canvas.height = Math.round(totalH * scale);
+        const ctx = canvas.getContext("2d");
+        if (scale !== 1) ctx.scale(scale, scale);
+        ctx.fillStyle = "#f5f0e6";
+        ctx.fillRect(0, 0, W, totalH);
+
+        function finish() {
+          layoutRecipeImage(ctx, r, W, photoH, true);
+          canvas.toBlob((blob) => resolve(blob), "image/png");
+        }
+
+        const shareImg = r.dishPhoto || r.photo;
+        if (shareImg) {
+          const img = new Image();
+          img.onload = () => {
+            const imgScale = Math.max(W / img.width, photoH / img.height);
+            const dw = img.width * imgScale, dh = img.height * imgScale;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, W, photoH);
+            ctx.clip();
+            ctx.drawImage(img, (W - dw) / 2, (photoH - dh) / 2, dw, dh);
+            ctx.restore();
+            finish();
+          };
+          img.onerror = finish;
+          img.src = shareImg;
+        } else {
+          const grad = ctx.createLinearGradient(0, 0, W, photoH);
+          grad.addColorStop(0, "#c98a5a"); grad.addColorStop(1, "#e0b183");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, photoH);
+          finish();
+        }
+      });
+    }
+
+    async function shareImage() {
       const r = getRecipe(state.selectedId);
       if (!r) return;
-      const W = 800;
-      const photoH = Math.round(W * 230 / 390); // matches the phone's .detailHero aspect ratio (230px at ~390px width)
-
-      const measureCanvas = document.createElement("canvas");
-      const mctx = measureCanvas.getContext("2d");
-      const totalH = Math.ceil(layoutRecipeImage(mctx, r, W, photoH, false));
-
-      // Mobile Safari silently truncates canvases past a certain pixel size — long
-      // recipes (many steps/long notes) could exceed that. Scale the whole image
-      // down proportionally rather than let the bottom (notes) get cut off.
-      const MAX_H = 4000;
-      const scale = totalH > MAX_H ? MAX_H / totalH : 1;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(W * scale);
-      canvas.height = Math.round(totalH * scale);
-      const ctx = canvas.getContext("2d");
-      if (scale !== 1) ctx.scale(scale, scale);
-      ctx.fillStyle = "#f5f0e6";
-      ctx.fillRect(0, 0, W, totalH);
-
-      function finish() {
-        layoutRecipeImage(ctx, r, W, photoH, true);
-        canvas.toBlob((blob) => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const filename = (r.title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() + ".png";
-          if (navigator.share && navigator.canShare) {
-            const file = new File([blob], filename, { type: "image/png" });
-            if (navigator.canShare({ files: [file] })) {
-              navigator.share({ files: [file], title: r.title }).catch(() => {});
-              setTimeout(() => URL.revokeObjectURL(url), 3000);
-              return;
-            }
-          }
-          const a = document.createElement("a");
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click(); a.remove();
+      const blob = await renderRecipeImageBlob(r);
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const filename = (r.title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() + ".png";
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: r.title }).catch(() => {});
           setTimeout(() => URL.revokeObjectURL(url), 3000);
-        }, "image/png");
+          return;
+        }
       }
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
 
-      const shareImg = r.dishPhoto || r.photo;
-      if (shareImg) {
-        const img = new Image();
-        img.onload = () => {
-          const scale = Math.max(W / img.width, photoH / img.height);
-          const dw = img.width * scale, dh = img.height * scale;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, 0, W, photoH);
-          ctx.clip();
-          ctx.drawImage(img, (W - dw) / 2, (photoH - dh) / 2, dw, dh);
-          ctx.restore();
-          finish();
-        };
-        img.onerror = finish;
-        img.src = shareImg;
-      } else {
-        const idx = Math.abs(hashStr(r.id)) % COLOR_PAIRS.length;
-        const grad = ctx.createLinearGradient(0, 0, W, photoH);
-        grad.addColorStop(0, "#c98a5a"); grad.addColorStop(1, "#e0b183");
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, photoH);
-        finish();
+    let jszipLoadPromise = null;
+    function loadJSZip() {
+      if (window.JSZip) return Promise.resolve();
+      if (!jszipLoadPromise) {
+        jszipLoadPromise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+          script.onload = resolve;
+          script.onerror = () => { jszipLoadPromise = null; reject(new Error("JSZip konnte nicht geladen werden")); };
+          document.head.appendChild(script);
+        });
       }
+      return jszipLoadPromise;
+    }
+
+    function uniqueFolderName(usedNames, title) {
+      const base = (title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() || "rezept";
+      let name = base;
+      let n = 2;
+      while (usedNames.has(name.toLowerCase())) {
+        name = `${base} (${n})`;
+        n++;
+      }
+      usedNames.add(name.toLowerCase());
+      return name;
+    }
+
+    async function exportAllRecipesZip() {
+      if (state.exportingAll) return;
+      state.exportingAll = true;
+      state.exportProgress = { done: 0, total: data.recipes.length };
+      render();
+      try {
+        await loadJSZip();
+        const zip = new JSZip();
+        const usedNames = new Set();
+
+        for (const r of data.recipes) {
+          const folder = zip.folder(uniqueFolderName(usedNames, r.title));
+
+          const exportBlob = await renderRecipeImageBlob(r);
+          if (exportBlob) folder.file("export.png", exportBlob);
+
+          const original = r.dishPhoto || r.photo;
+          if (original) {
+            const match = /^data:image\/(\w+);base64,/.exec(original);
+            const ext = match ? match[1].replace("jpeg", "jpg") : "jpg";
+            try {
+              const res = await fetch(original);
+              folder.file(`original.${ext}`, await res.blob());
+            } catch {}
+          }
+
+          state.exportProgress.done++;
+          render();
+        }
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "rezepte-export.zip";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (err) {
+        alert("Export fehlgeschlagen: " + (err.message || err));
+      }
+      state.exportingAll = false;
+      state.exportProgress = null;
+      render();
     }
 
     // ---------- Auth / bootstrap ----------
