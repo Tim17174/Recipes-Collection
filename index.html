@@ -339,7 +339,7 @@
         healthScore: row.health_score, healthScoreReason: row.health_score_reason,
         healthScoreExpanded: row.health_score_expanded || false,
         cooked: row.cooked || false,
-        stage: row.stage || "final",
+        stage: row.stage || STAGE_FINAL,
       };
     }
 
@@ -409,7 +409,21 @@
     }
     async function setRecipeStageRemote(id, stage) {
       const { error } = await sb.rpc("set_recipe_stage", { pw: appPassword, recipe_id: id, p_stage: stage });
-      if (error) remoteError(error);
+      if (error) { remoteError(error); return false; }
+      return true;
+    }
+
+    // Persists a brand-new recipe: the stage-set call must wait for the insert to
+    // land, otherwise it can race ahead of it and silently update zero rows,
+    // leaving the recipe stuck at the column default (STAGE_FINAL) instead of
+    // recipe.stage. Tracked in pendingRecipeInserts so any other narrow "update
+    // by id" action fired at this recipe in the meantime waits for the insert too.
+    async function persistNewRecipe(recipe) {
+      const insertPromise = saveRecipeRemote(recipe);
+      pendingRecipeInserts.set(recipe.id, insertPromise);
+      await insertPromise;
+      pendingRecipeInserts.delete(recipe.id);
+      await setRecipeStageRemote(recipe.id, recipe.stage);
     }
     async function addCategoryRemote(name) {
       const { error } = await sb.rpc("add_category", { pw: appPassword, cat_name: name });
@@ -541,6 +555,10 @@
     ];
     const TILE_BG = ["oklch(0.89 0.07 75)", "oklch(0.91 0.06 82)", "oklch(0.93 0.05 88)", "oklch(0.87 0.08 70)", "oklch(0.9 0.06 65)"];
     const TIME_BUCKETS = ["Alle", "≤ 15 Min", "≤ 30 Min", "≤ 60 Min", "> 60 Min"];
+    // Named so a stray-string typo (e.g. "Final") is a ReferenceError caught during
+    // testing rather than a silently-broken === comparison against the DB value.
+    const STAGE_FINAL = "final";
+    const STAGE_GESAMMELT = "gesammelt";
 
     function photoStyle(recipe) {
       const img = recipe.dishPhoto || recipe.photo;
@@ -640,9 +658,8 @@
       personFilter: "Alle",
       healthyFilter: "Alle",
       cookedFilter: "Alle",
-      libraryStage: "final",
-      exportingAll: false,
-      exportProgress: null,
+      libraryStage: STAGE_FINAL,
+      exportProgress: null, // { done, total } while exporting, null when idle
       filterGroup: "category",
       filterMenuOpen: false,
       recentOpen: true,
@@ -759,6 +776,17 @@
       return sorted;
     }
     function getRecipe(id) { return data.recipes.find((r) => r.id === id); }
+
+    // Tracks recipes whose initial insert (upsert_recipe) hasn't landed yet. Any
+    // narrow "update by id" RPC (set_recipe_cooked, set_recipe_stage, …) fired at
+    // a recipe while its insert is still in flight would otherwise race ahead of
+    // it and silently update zero rows. Actions that fire such an RPC should
+    // await awaitPendingInsert(id) first.
+    const pendingRecipeInserts = new Map();
+    async function awaitPendingInsert(id) {
+      const p = pendingRecipeInserts.get(id);
+      if (p) await p;
+    }
     function notebookName(id) { const n = data.notebooks.find((n) => n.id === id); return n ? n.name : null; }
 
     // ---------- Top-level render ----------
@@ -809,26 +837,33 @@
 
     // ---------- Home ----------
     function renderHome() {
-      const recent = data.recipes.slice(0, 4);
-      const favorites = data.recipes.filter((r) => r.favorite).slice().reverse();
+      // Home only surfaces "final" recipes — "gesammelt" ones are still being
+      // curated and live in the Library's "Gesammelt" sub-tab, so counting them
+      // here would make tile counts/favorites disagree with what tapping into
+      // the Library actually shows.
+      const finalRecipes = data.recipes.filter((r) => r.stage === STAGE_FINAL);
+      const recent = finalRecipes.slice(0, 4);
+      const favorites = finalRecipes.filter((r) => r.favorite).slice().reverse();
 
       const catCounts = {};
       data.categories.forEach((c) => (catCounts[c] = 0));
-      data.recipes.forEach((r) => { if (catCounts[r.category] !== undefined) catCounts[r.category]++; });
+      finalRecipes.forEach((r) => { if (catCounts[r.category] !== undefined) catCounts[r.category]++; });
 
       const nbCounts = {};
       data.notebooks.forEach((n) => (nbCounts[n.id] = 0));
-      data.recipes.forEach((r) => { if (r.notebookId != null && nbCounts[r.notebookId] !== undefined) nbCounts[r.notebookId]++; });
+      finalRecipes.forEach((r) => { if (r.notebookId != null && nbCounts[r.notebookId] !== undefined) nbCounts[r.notebookId]++; });
 
       let html = `<div class="homeHeading">Rezepte</div>`;
       html += `
         <div class="statGrid">
-          <div class="statCard"><div class="num">${data.recipes.length}</div><div class="label">Rezepte</div></div>
+          <div class="statCard"><div class="num">${finalRecipes.length}</div><div class="label">Rezepte</div></div>
           <div class="statCard"><div class="num">${data.notebooks.length}</div><div class="label">Sammlungen</div></div>
         </div>`;
 
       if (data.recipes.length === 0) {
         html += `<div class="emptyHint">Noch keine Rezepte. Tippe unten auf ＋, um dein erstes Rezept zu fotografieren oder von Hand einzutragen.</div>`;
+      } else if (finalRecipes.length === 0) {
+        html += `<div class="emptyHint">Noch keine finalen Rezepte. Schau in der Bibliothek unter "Gesammelt" nach.</div>`;
       }
 
       if (recent.length > 0) {
@@ -964,9 +999,9 @@
 
       html += `<div class="sectionTitle">Export</div>`;
       html += `<div class="sectionSub">Lädt jedes Rezept als Bild (wie beim Teilen) plus Originalfoto, alles gepackt als ZIP-Datei</div>`;
-      if (state.exportingAll) {
+      if (state.exportProgress) {
         const p = state.exportProgress;
-        html += `<div class="actionBtn" style="margin-top:0.7rem;justify-content:center;">Exportiere … ${p ? `${p.done}/${p.total}` : ""}</div>`;
+        html += `<div class="actionBtn" id="exportProgressText" style="margin-top:0.7rem;justify-content:center;">Exportiere … ${p.done}/${p.total}</div>`;
       } else {
         html += `<button class="btnSmallGhost" style="margin-top:0.7rem;" data-action="exportAllRecipes">Alle Rezepte exportieren</button>`;
       }
@@ -1003,8 +1038,8 @@
         </div>
 
         <div class="chipRow" style="margin-top:0.9rem;">
-          <button class="pill ${state.libraryStage === "final" ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="final">Final</button>
-          <button class="pill ${state.libraryStage === "gesammelt" ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="gesammelt">Gesammelt</button>
+          <button class="pill ${state.libraryStage === STAGE_FINAL ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="${STAGE_FINAL}">Final</button>
+          <button class="pill ${state.libraryStage === STAGE_GESAMMELT ? "pillActive" : "pillInactive"}" data-action="setLibraryStage" data-name="${STAGE_GESAMMELT}">Gesammelt</button>
         </div>
 
         <div class="searchBar">
@@ -1246,7 +1281,7 @@
 
           <div style="display:flex;justify-content:center;gap:0.6rem;margin-top:1.4rem;flex-wrap:wrap;">
             <button class="actionBtn cook" data-action="startCookMode"><svg width="10" height="12" viewBox="0 0 10 12"><path d="M1 1l8 5-8 5z" fill="currentColor"/></svg> Kochmodus</button>
-            <button class="actionBtn" data-action="moveRecipeStage">${r.stage === "final" ? "↩ Zurück zu Gesammelt" : "✓ Als Final markieren"}</button>
+            <button class="actionBtn" data-action="moveRecipeStage">${r.stage === STAGE_FINAL ? "↩ Zurück zu Gesammelt" : "✓ Als Final markieren"}</button>
           </div>
         `;
       } else {
@@ -1642,8 +1677,8 @@
       },
       toggleRecentOpen: () => { state.recentOpen = !state.recentOpen; render(); },
       toggleFavoritesOpen: () => { state.favoritesOpen = !state.favoritesOpen; render(); },
-      selectCategoryHome: (el) => { state.categoryFilter = el.dataset.name; state.notebookFilter = "all"; state.filterGroup = "category"; state.tab = "collection"; render(); },
-      selectNotebookHome: (el) => { state.notebookFilter = el.dataset.id; state.categoryFilter = "Alle"; state.filterGroup = "notebook"; state.tab = "collection"; render(); },
+      selectCategoryHome: (el) => { state.categoryFilter = el.dataset.name; state.notebookFilter = "all"; state.filterGroup = "category"; state.libraryStage = STAGE_FINAL; state.tab = "collection"; render(); },
+      selectNotebookHome: (el) => { state.notebookFilter = el.dataset.id; state.categoryFilter = "Alle"; state.filterGroup = "notebook"; state.libraryStage = STAGE_FINAL; state.tab = "collection"; render(); },
       addCategory: () => {
         const name = state.newCategoryName.trim();
         if (!name) return;
@@ -1674,20 +1709,24 @@
       setPersonFilter: (el) => { state.personFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setHealthyFilter: (el) => { state.healthyFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
       setCookedFilter: (el) => { state.cookedFilter = el.dataset.name; state.filterMenuOpen = false; render(); },
-      toggleCooked: () => {
+      toggleCooked: async () => {
         const r = getRecipe(state.selectedId);
         if (!r) return;
         r.cooked = !r.cooked;
-        setCookedRemote(r.id, r.cooked);
         render();
+        await awaitPendingInsert(r.id);
+        setCookedRemote(r.id, r.cooked);
       },
       setLibraryStage: (el) => { state.libraryStage = el.dataset.name; render(); },
-      moveRecipeStage: () => {
+      moveRecipeStage: async () => {
         const r = getRecipe(state.selectedId);
         if (!r) return;
-        r.stage = r.stage === "final" ? "gesammelt" : "final";
-        setRecipeStageRemote(r.id, r.stage);
+        const prevStage = r.stage;
+        r.stage = r.stage === STAGE_FINAL ? STAGE_GESAMMELT : STAGE_FINAL;
         render();
+        await awaitPendingInsert(r.id);
+        const ok = await setRecipeStageRemote(r.id, r.stage);
+        if (!ok) { r.stage = prevStage; render(); }
       },
       requestDeleteCategory: (el) => {
         const name = el.dataset.name;
@@ -1888,16 +1927,12 @@
           notes: "", source: d.source, favorite: false, photo: null, dishPhoto: null, tags: d.tags,
           ingredients: d.ingredients.filter((v) => v.trim()), steps: d.steps.filter((v) => v.trim()),
           healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
-          stage: "gesammelt",
+          stage: STAGE_GESAMMELT,
         };
         data.recipes.unshift(recipe);
         state.manualAddOpen = false; state.manualDraft = null; state.tab = "home";
         render();
-        // The stage-set call must wait for the insert to land, otherwise it can race
-        // ahead of it and silently update zero rows, leaving the recipe stuck at the
-        // column default ("final") instead of "gesammelt".
-        await saveRecipeRemote(recipe);
-        await setRecipeStageRemote(recipe.id, recipe.stage);
+        await persistNewRecipe(recipe);
       },
 
       discardCapture: () => { state.captureStep = null; state.pendingRecipe = null; state.pendingThumb = null; render(); },
@@ -1912,16 +1947,14 @@
           photo: null, dishPhoto: null, tags: [],
           ingredients: p.ingredients || [], steps: p.instructions || [],
           healthScore: null, healthScoreReason: null, healthScoreExpanded: false, cooked: false,
-          stage: "gesammelt",
+          stage: STAGE_GESAMMELT,
         };
         data.recipes.unshift(recipe);
         state.pendingRecipe = null; state.pendingThumb = null;
         state.selectedId = recipe.id;
         state.captureStep = "dishPrompt";
         render();
-        // Same ordering reason as saveManualAdd above.
-        await saveRecipeRemote(recipe);
-        await setRecipeStageRemote(recipe.id, recipe.stage);
+        await persistNewRecipe(recipe);
       },
       finishCaptureFlow: () => {
         state.captureStep = null; state.selectedId = null; state.tab = "home";
@@ -2250,13 +2283,17 @@
       });
     }
 
+    function sanitizeFilename(title) {
+      return (title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() || "rezept";
+    }
+
     async function shareImage() {
       const r = getRecipe(state.selectedId);
       if (!r) return;
       const blob = await renderRecipeImageBlob(r);
       if (!blob) return;
       const url = URL.createObjectURL(blob);
-      const filename = (r.title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() + ".png";
+      const filename = sanitizeFilename(r.title) + ".png";
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], filename, { type: "image/png" });
         if (navigator.canShare({ files: [file] })) {
@@ -2287,7 +2324,7 @@
     }
 
     function uniqueFolderName(usedNames, title) {
-      const base = (title || "rezept").replace(/[^a-z0-9äöüß -]/gi, "").trim() || "rezept";
+      const base = sanitizeFilename(title);
       let name = base;
       let n = 2;
       while (usedNames.has(name.toLowerCase())) {
@@ -2298,11 +2335,18 @@
       return name;
     }
 
+    function updateExportProgressUI() {
+      const el = document.getElementById("exportProgressText");
+      if (el && state.exportProgress) {
+        el.textContent = `Exportiere … ${state.exportProgress.done}/${state.exportProgress.total}`;
+      }
+    }
+
     async function exportAllRecipesZip() {
-      if (state.exportingAll) return;
-      state.exportingAll = true;
+      if (state.exportProgress) return;
       state.exportProgress = { done: 0, total: data.recipes.length };
       render();
+      const failedPhotos = [];
       try {
         await loadJSZip();
         const zip = new JSZip();
@@ -2320,12 +2364,15 @@
             const ext = match ? match[1].replace("jpeg", "jpg") : "jpg";
             try {
               const res = await fetch(original);
+              if (!res.ok) throw new Error("HTTP " + res.status);
               folder.file(`original.${ext}`, await res.blob());
-            } catch {}
+            } catch {
+              failedPhotos.push(r.title || "Ohne Titel");
+            }
           }
 
           state.exportProgress.done++;
-          render();
+          updateExportProgressUI();
         }
 
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -2334,12 +2381,15 @@
         a.href = url; a.download = "rezepte-export.zip";
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
+        if (failedPhotos.length) {
+          alert("Hinweis: Bei folgenden Rezepten konnte das Originalfoto nicht mit exportiert werden:\n" + failedPhotos.join(", "));
+        }
       } catch (err) {
         alert("Export fehlgeschlagen: " + (err.message || err));
+      } finally {
+        state.exportProgress = null;
+        render();
       }
-      state.exportingAll = false;
-      state.exportProgress = null;
-      render();
     }
 
     // ---------- Auth / bootstrap ----------
