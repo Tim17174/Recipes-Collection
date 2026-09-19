@@ -2232,7 +2232,12 @@
         img.onload = () => {
           const scale = Math.max(W / img.width, photoH / img.height);
           const dw = img.width * scale, dh = img.height * scale;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, W, photoH);
+          ctx.clip();
           ctx.drawImage(img, (W - dw) / 2, (photoH - dh) / 2, dw, dh);
+          ctx.restore();
           finish();
         };
         img.onerror = finish;
