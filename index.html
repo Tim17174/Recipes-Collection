@@ -2099,7 +2099,6 @@
       const stats = [
         { value: r.time || "—", label: "Kochzeit" },
         { value: String(servingsNumber), label: "Portionen" },
-        { value: r.source || "—", label: "Von wem" },
       ];
       const boxH = 112;
       if (draw) {
@@ -2110,7 +2109,7 @@
         if (ctx.roundRect) ctx.roundRect(40, y, W - 80, boxH, 20); else ctx.rect(40, y, W - 80, boxH);
         ctx.fill();
         ctx.stroke();
-        const colW = (W - 80) / 3;
+        const colW = (W - 80) / stats.length;
         stats.forEach((s, i) => {
           const cx = 40 + colW * i + colW / 2;
           ctx.textAlign = "center";
@@ -2192,9 +2191,17 @@
       const mctx = measureCanvas.getContext("2d");
       const totalH = Math.ceil(layoutRecipeImage(mctx, r, W, photoH, false));
 
+      // Mobile Safari silently truncates canvases past a certain pixel size — long
+      // recipes (many steps/long notes) could exceed that. Scale the whole image
+      // down proportionally rather than let the bottom (notes) get cut off.
+      const MAX_H = 4000;
+      const scale = totalH > MAX_H ? MAX_H / totalH : 1;
+
       const canvas = document.createElement("canvas");
-      canvas.width = W; canvas.height = totalH;
+      canvas.width = Math.round(W * scale);
+      canvas.height = Math.round(totalH * scale);
       const ctx = canvas.getContext("2d");
+      if (scale !== 1) ctx.scale(scale, scale);
       ctx.fillStyle = "#f5f0e6";
       ctx.fillRect(0, 0, W, totalH);
 
