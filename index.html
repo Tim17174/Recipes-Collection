@@ -103,6 +103,21 @@
     .tile .name { font-size: 0.9rem; font-weight: 600; }
     .tile .count { font-size: 0.78rem; color: oklch(0.4 0.02 75); margin-top: 0.15rem; }
 
+    .categoryGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; margin-top: 0.75rem; }
+    .categoryTile {
+      position: relative; aspect-ratio: 1; border-radius: 17px; overflow: hidden; cursor: pointer;
+      background-size: cover; background-position: center;
+      display: flex; align-items: flex-end; padding: 0.85rem;
+    }
+    .categoryTile.hasPhoto::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.62), rgba(0,0,0,0) 60%);
+    }
+    .categoryTile .catInfo { position: relative; z-index: 1; }
+    .categoryTile .name { font-size: 0.95rem; font-weight: 600; }
+    .categoryTile .count { font-size: 0.78rem; margin-top: 0.15rem; color: oklch(0.4 0.02 75); }
+    .categoryTile.hasPhoto .name, .categoryTile.hasPhoto .count { color: #fff; }
+
     .inlineAdd { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
     .inlineAdd input { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 0.6rem 0.8rem; font-size: 1rem; color: var(--text); }
     .btnSmall { background: var(--accent); color: #fff; border: none; border-radius: 11px; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
@@ -866,6 +881,21 @@
         html += `<div class="emptyHint">Noch keine finalen Rezepte. Schau in der Bibliothek unter "Gesammelt" nach.</div>`;
       }
 
+      html += `<div class="sectionTitle" style="margin-top:1.6rem;">Kategorien</div><div class="categoryGrid">`;
+      html += data.categories.map((name, i) => {
+        const photoRecipe = finalRecipes.find((r) => r.category === name && (r.dishPhoto || r.photo));
+        const photoUrl = photoRecipe ? (photoRecipe.dishPhoto || photoRecipe.photo) : null;
+        const bg = photoUrl ? `background-image:url('${photoUrl}');` : `background:${TILE_BG[i % TILE_BG.length]};`;
+        return `
+          <div class="categoryTile${photoUrl ? " hasPhoto" : ""}" style="${bg}" data-action="selectCategoryHome" data-name="${escapeHtml(name)}">
+            <div class="catInfo">
+              <div class="name">${escapeHtml(name)}</div>
+              <div class="count">${catCounts[name] || 0} Rezepte</div>
+            </div>
+          </div>`;
+      }).join("");
+      html += `</div>`;
+
       if (recent.length > 0) {
         html += `
           <div class="row-between" data-action="toggleRecentOpen" style="margin-top:1.6rem;cursor:pointer;">
@@ -891,14 +921,6 @@
           html += `<div class="hscroll">` + favorites.map(recipeTile).join("") + `</div>`;
         }
       }
-
-      html += `<div class="sectionTitle">Kategorien</div><div class="tileScroll">`;
-      html += data.categories.map((name, i) => `
-        <div class="tile" style="background:${TILE_BG[i % TILE_BG.length]};" data-action="selectCategoryHome" data-name="${escapeHtml(name)}">
-          <div class="name">${escapeHtml(name)}</div>
-          <div class="count">${catCounts[name] || 0} Rezepte</div>
-        </div>`).join("");
-      html += `</div>`;
 
       html += `
         <div class="sectionTitle">Sammlungen</div>
