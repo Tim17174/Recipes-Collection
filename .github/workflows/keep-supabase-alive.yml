@@ -1,11 +1,11 @@
 name: Keep Supabase Alive
 
 # Verhindert, dass das kostenlose Supabase-Projekt nach 7 Tagen Inaktivitaet
-# automatisch pausiert. Laeuft an jedem 1./7./13./19./25./31. Tag im Monat,
-# also nie mit mehr als 6 Tagen Abstand.
+# automatisch pausiert. Laeuft an jedem 3. Tag (1./4./7./...), also nie mit
+# mehr als 3 Tagen Abstand.
 on:
   schedule:
-    - cron: "0 3 1,7,13,19,25,31 * *"
+    - cron: "0 3 */3 * *"
   workflow_dispatch: {}
 
 jobs:
